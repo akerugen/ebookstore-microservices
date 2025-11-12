@@ -1,0 +1,97 @@
+version: '3'
+
+services:
+  user-service:
+    image: ebookstore-microservices/user-service:0.0.1-SNAPSHOT
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    ports:
+      - "9091:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://user-feign-postgres:5432/user_service_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+    depends_on:
+      user-service-postgres:
+        condition: service_healthy
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+  user-service-postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=user_service_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "9433:5432"
+    volumes:
+      - user_service_postgres_data:/var/lib/postgresql/data
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d user_service_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-service:
+    image: ebookstore-microservices/auth-service:0.0.1-SNAPSHOT
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "9092:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://auth-service-postgres:5432/auth_service_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - JWT_SECRET=your-super-secret-key-change-in-production-at-least-256-bits-long-key-please
+      - JWT_ACCESS_TOKEN_EXPIRATION=3600000
+      - JWT_REFRESH_TOKEN_EXPIRATION=604800000
+      - USER_SERVICE_URL=http://user-service:8081
+    depends_on:
+      auth-service-postgres:
+        condition: service_healthy
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8082/api/auth/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  auth-service-postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_DB=auth_service_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "9434:5432"
+    volumes:
+      - auth_service_postgres_data:/var/lib/postgresql
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d auth_service_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  ebookstore-microservices:
+    driver: bridge
+
+volumes:
+  user_service_postgres_data:
+  auth_service_postgres_data:

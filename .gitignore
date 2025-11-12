@@ -14,7 +14,7 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-.idea/
+.idea
 *.iws
 *.iml
 *.ipr
@@ -38,33 +38,31 @@ build/
 
 ### VS Code ###
 .vscode/
-*.code-workspace
 
-### Java ###
-# Compiled class files
+# Java / Spring Boot
 *.class
-
-# Log files
-*.log
-*.log.*
-
-# Package files
 *.jar
 *.war
 *.nar
 *.ear
-*.zip
-*.tar.gz
-*.rar
+target/
+*.log
+*.log.*
+*.tmp
+*.bak
+*.swp
+*~.nib
+*.DS_Store
 
 # Maven
-target/
-pom.xml.tag
-pom.xml.releaseBackup
 pom.xml.versionsBackup
-pom.xml.next
+pom.xml.releaseBackup
 release.properties
 dependency-reduced-pom.xml
+.mvn/
+mvnw
+mvnw.cmd
+.mvn/wrapper/
 
 # Gradle
 .gradle/
@@ -90,13 +88,20 @@ application.yml
 application-*.properties
 application-*.yml
 
-# Spring Boot devtools restart directory
-.spring-boot-devtools.properties
-.spring-boot-devtools.yml
+# Spring Boot
+spring.log
+*.pid
+*.seed
+*.pid.lock
+application-local.yml
+application-dev.yml
+application-prod.yml
+*.jks
+*.p12
+*.keystore
+*.truststore
 
-### Node.js / JavaScript / React ###
-
-# Node modules
+# Node.js / NestJS
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -105,12 +110,7 @@ pnpm-debug.log*
 
 # Build outputs
 dist/
-build/
-out/
-.next/
-.nuxt/
-.vuepress/dist/
-.svelte-kit/
+*.log
 *.tsbuildinfo
 
 # Environment variables
@@ -121,25 +121,17 @@ out/
 .env.production.local
 .env.*.local
 
-# Logs
-logs
+# React / TypeScript / JavaScript
+build/
+dist/
+.vite/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Dependency directories
-.jspm_packages/
-.webassets-cache/
-.eslintcache
-.stylelintcache
+*.tsbuildinfo
+*.env
+*.env.local
+*.env.development
+*.env.production
+coverage/
 
 # Optional npm cache directory
 .npm
@@ -160,35 +152,36 @@ pids
 .cache
 .parcel-cache
 
-# Vite
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+# Docker
+docker-compose.override.yml
+*.dockerignore
+*.container
+*.docker
 
-# Rollup
-.rollup.cache
-
-# Webpack
-.webpack/
-
-# React Native
-*.orig.*
-.expo/
-.expo-shared/
-
-# IDE - WebStorm
-.idea/
-*.iml
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Kubernetes
+*.kube
+kubeconfig
+*.yaml.bak
 
 # Temporary files
-*.tmp
 *.temp
 *~
+
+# Sensitive files
+*.secret
+*.key
+*.pem
+*.crt
+credentials.json
+config.json
+
+# Test artifacts
+test-output/
+junit-reports/
+
+# Miscellaneous
+*.cache
+*.lock
+*.zip
+*.tar.gz
+*.rar
