@@ -8,12 +8,20 @@
 		<version>3.5.7</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
+
 	<groupId>com.akerugen</groupId>
 	<artifactId>ebookstore-microservices</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging> <!-- важная вещь для работы модулей -->
 
 	<name>ebookstore-microservices</name>
 	<description>Ebookstore Microservices</description>
+
+	<modules>
+		<module>user-service</module>
+		<module>auth-service</module>
+	</modules>
+
 	<url/>
 	<licenses>
 		<license/>

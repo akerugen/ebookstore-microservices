@@ -1,6 +1,6 @@
 package akerugen.userservice.repo;
 
-import akerugen.userservice.model.UserEntity;
+import akerugen.userservice.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

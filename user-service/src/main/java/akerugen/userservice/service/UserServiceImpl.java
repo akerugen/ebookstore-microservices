@@ -3,7 +3,7 @@ package akerugen.userservice.service;
 import akerugen.userservice.dto.request.UserRequestDto;
 import akerugen.userservice.dto.response.UserResponseDto;
 import akerugen.userservice.mapper.UserMapper;
-import akerugen.userservice.model.UserEntity;
+import akerugen.userservice.entity.UserEntity;
 import akerugen.userservice.repo.UserRepository;
 import akerugen.userservice.validation.UserValidator;
 import org.apache.logging.log4j.LogManager;

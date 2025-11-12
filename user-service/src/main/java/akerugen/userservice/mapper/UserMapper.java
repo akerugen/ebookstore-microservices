@@ -2,7 +2,7 @@ package akerugen.userservice.mapper;
 
 import akerugen.userservice.dto.request.UserRequestDto;
 import akerugen.userservice.dto.response.UserResponseDto;
-import akerugen.userservice.model.UserEntity;
+import akerugen.userservice.entity.UserEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;

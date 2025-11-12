@@ -1,4 +1,4 @@
-package akerugen.userservice.model;
+package akerugen.userservice.entity;
 
 
 import jakarta.persistence.*;
