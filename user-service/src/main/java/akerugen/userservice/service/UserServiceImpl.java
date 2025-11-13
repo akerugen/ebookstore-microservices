@@ -104,13 +104,24 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponseDto updateUser(Long id, UserRequestDto request) {
         logger.info("Updating user with id: {}", id);
-        userValidator.validate(request, id, true); // частичная валидация при обновлении
+
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        // user.setPassword(request.getPassword());
+
+        // Обновляем ТОЛЬКО поля профиля
+        if (request.getFirstName() != null && !request.getFirstName().isEmpty()) {
+            user.setFirstName(request.getFirstName());
+            logger.debug("Updated firstName to: {}", request.getFirstName());
+        }
+        if (request.getLastName() != null && !request.getLastName().isEmpty()) {
+            user.setLastName(request.getLastName());
+            logger.debug("Updated lastName to: {}", request.getLastName());
+        }
+
+        user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
+
+        logger.info("User updated successfully with id: {}", id);
         return userMapper.toResponseDto(user);
     }
 
@@ -125,21 +136,20 @@ public class UserServiceImpl implements UserService {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
 
-        // Обновляем только поля профиля
-        if (request.getFirstName() != null) {
+        // Обновляем ТОЛЬКО поля профиля
+        if (request.getFirstName() != null && !request.getFirstName().isEmpty()) {
             user.setFirstName(request.getFirstName());
+            logger.debug("Updated firstName to: {}", request.getFirstName());
         }
-        if (request.getLastName() != null) {
+        if (request.getLastName() != null && !request.getLastName().isEmpty()) {
             user.setLastName(request.getLastName());
-        }
-        if (request.getDateOfBirth() != null) {
-            user.setDateOfBirth(request.getDateOfBirth());
+            logger.debug("Updated lastName to: {}", request.getLastName());
         }
 
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 
-        logger.info("User updated with username: {}", username);
+        logger.info("User updated successfully with username: {}", username);
         return userMapper.toResponseDto(user);
     }
 

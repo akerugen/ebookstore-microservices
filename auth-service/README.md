@@ -41,4 +41,13 @@ curl -X POST http://localhost:9092/api/auth/refresh \
 ```
 curl -X POST "http://localhost:9092/api/auth/logout?refreshToken=YOUR_REFRESH_TOKEN"
 ```
-   
+
+### 7. Логин под суперюзером:
+```
+curl -s -X POST http://localhost:9092/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "usernameOrEmail": "superuser",
+    "password": "SuperuserPass123!"
+  }'
+```
