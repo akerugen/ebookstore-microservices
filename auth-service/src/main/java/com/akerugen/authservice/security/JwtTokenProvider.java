@@ -40,14 +40,28 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Генерит access token
+     * Генерит access token с учётом ролей пользователя
      * @param userId ID пользователя
      * @param username имя пользователя
-     * @return JWT access token строка
+     * @param role роль пользователя
+     * @return JWT token
      */
-    public String generateAccessToken(Long userId, String username) {
-        logger.debug("Generating access token for user: {}", username);
-        return generateToken(userId, username, accessTokenExpiration, "ACCESS");
+    public String generateAccessToken(Long userId, String username, String role) {
+        logger.debug("Generating access token for user: {} with role: {}", username, role);
+
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
+
+        return Jwts.builder()
+                .subject(username)
+                .claim("userId", userId)
+                .claim("username", username)
+                .claim("role", role)
+                .claim("tokenType", "ACCESS")
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .compact();
     }
 
     /**
@@ -56,28 +70,18 @@ public class JwtTokenProvider {
      * @param username имя пользователя
      * @return JWT refresh token строка
      */
-    public String generateRefreshToken(Long userId, String username) {
-        logger.debug("Generating refresh token for user: {}", username);
-        return generateToken(userId, username, refreshTokenExpiration, "REFRESH");
-    }
+    public String generateRefreshToken(Long userId, String username, String role) {
+        logger.debug("Generating refresh token for user: {} with role: {}", username, role);
 
-    /**
-     * Внутренний метод для генерации любого типа токена
-     * @param userId ID пользователя
-     * @param username имя пользователя
-     * @param expirationTime время жизни токена в миллисекундах
-     * @param tokenType тип токена (ACCESS или REFRESH)
-     * @return JWT токен строка
-     */
-    private String generateToken(Long userId, String username, long expirationTime, String tokenType) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expirationTime);
+        Date expiryDate = new Date(now.getTime() + refreshTokenExpiration);
 
         return Jwts.builder()
                 .subject(username)
                 .claim("userId", userId)
                 .claim("username", username)
-                .claim("tokenType", tokenType)
+                .claim("role", role)
+                .claim("tokenType", "REFRESH")
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS512)
@@ -132,6 +136,20 @@ public class JwtTokenProvider {
             return (String) getClaims(token).get("tokenType");
         } catch (JwtException ex) {
             logger.error("Failed to get token type: {}", ex.getMessage());
+            throw new TokenException("Invalid token");
+        }
+    }
+
+    /**
+     * Извлекает роль из токена
+     * @param token JWT токен
+     * @return роль (ROLE_USER, ROLE_ADMIN, ROLE_SUPER_USER)
+     */
+    public String getRoleFromToken(String token) {
+        try {
+            return (String) getClaims(token).get("role");
+        } catch (JwtException ex) {
+            logger.error("Failed to get role from token: {}", ex.getMessage());
             throw new TokenException("Invalid token");
         }
     }

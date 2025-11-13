@@ -25,7 +25,6 @@ services:
       timeout: 10s
       retries: 3
 
-
   user-service-postgres:
     image: postgres:17
     environment:

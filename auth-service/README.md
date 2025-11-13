@@ -25,12 +25,12 @@ curl -X POST http://localhost:9092/api/auth/login \
 
 ### 4. Проверка токена:
 ```
-curl -X POST "http://localhost:8082/api/auth/validate?token=YOUR_ACCESS_TOKEN"
+curl -X POST "http://localhost:9092/api/auth/validate?token=YOUR_ACCESS_TOKEN"
 ```
 
 ### 5. Рефреш токена:
 ```
-curl -X POST http://localhost:8082/api/auth/refresh \
+curl -X POST http://localhost:9092/api/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{
     "refreshToken": "YOUR_REFRESH_TOKEN"
@@ -39,6 +39,6 @@ curl -X POST http://localhost:8082/api/auth/refresh \
 
 ### 6. Выход из учетки:
 ```
-curl -X POST "http://localhost:8082/api/auth/logout?refreshToken=YOUR_REFRESH_TOKEN"
+curl -X POST "http://localhost:9092/api/auth/logout?refreshToken=YOUR_REFRESH_TOKEN"
 ```
    

@@ -4,30 +4,42 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public class ErrorResponse {
+
+    @Schema(description = "HTTP status code")
+    private int statusCode;
 
     @Schema(description = "Error message")
     private String message;
 
-    @Schema(description = "HTTP status code")
-    private int statusCode;
+    @Schema(description = "Error path")
+    private String path;
 
     @Schema(description = "Timestamp when error occurred")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime timestamp;
 
-    @Schema(description = "Error path")
-    private String path;
+    @Schema(description = "List of errors")
+    private Map<String, String> errors;
 
     public ErrorResponse() {
     }
 
-    public ErrorResponse(String message, int statusCode, LocalDateTime timestamp, String path) {
-        this.message = message;
+    public ErrorResponse(int statusCode, String message, String path,  LocalDateTime timestamp) {
         this.statusCode = statusCode;
-        this.timestamp = timestamp;
+        this.message = message;
         this.path = path;
+        this.timestamp = timestamp;
+    }
+
+    public ErrorResponse(int statusCode, String message, String path,  LocalDateTime timestamp, Map<String, String> errors) {
+        this.statusCode = statusCode;
+        this.message = message;
+        this.path = path;
+        this.timestamp = timestamp;
+        this.errors = errors;
     }
 
     public String getMessage() { return message; }
@@ -45,4 +57,8 @@ public class ErrorResponse {
     public String getPath() { return path; }
 
     public void setPath(String path) { this.path = path; }
+
+    public Map<String, String> getErrors() { return errors; }
+
+    public void setErrors(Map<String, String> errors) { this.errors = errors; }
 }

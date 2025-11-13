@@ -15,13 +15,17 @@ public class ValidationResponse {
     @Schema(description = "Username from token", example = "ivan_ivanov")
     private String username;
 
+    @Schema(description = "User role from token", example = "ROLE_USER")
+    private String role;
+
     public ValidationResponse() {
     }
 
-    public ValidationResponse(Boolean valid, Long userId, String username) {
+    public ValidationResponse(Boolean valid, Long userId, String username, String role) {
         this.valid = valid;
         this.userId = userId;
         this.username = username;
+        this.role = role;
     }
 
     public Boolean getValid() { return valid; }
@@ -35,4 +39,8 @@ public class ValidationResponse {
     public String getUsername() { return username; }
 
     public void setUsername(String username) { this.username = username; }
+
+    public String getRole() { return role; }
+
+    public void setRole(String role) { this.role = role; }
 }

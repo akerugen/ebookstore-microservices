@@ -31,9 +31,6 @@ public class UserValidator {
         if (request.getEmail() != null) {
             validateEmail(request.getEmail(), userId);
         }
-        if (request.getPassword() != null) {
-            validatePassword(request.getPassword());
-        }
     }
 
     // Проверка аннотаций
@@ -72,13 +69,6 @@ public class UserValidator {
                 .ifPresent(user -> {
                     throw new IllegalArgumentException("Email already exists: " + email);
                 });
-    }
-
-    private void validatePassword(String password) {
-        if (!password.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{6,}$")) {
-            throw new IllegalArgumentException("Password must be at least 6 characters and contain at least " +
-                    "one uppercase letter, one lowercase letter, and one digit");
-        }
     }
 }
 

@@ -20,6 +20,14 @@ public class RegisterRequest {
     @Email(message = "Email must be valid")
     private String email;
 
+    @Schema(description = "First name", example = "Ivan")
+    @Size(max = 50, message = "First name must be at most 50 characters")
+    private String firstName;
+
+    @Schema(description = "Last name", example = "Ivanov")
+    @Size(max = 50, message = "Last name must be at most 50 characters")
+    private String lastName;
+
     @Schema(description = "Password", example = "securePassword123")
     @NotBlank(message = "Password cannot be blank")
     @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
@@ -39,6 +47,16 @@ public class RegisterRequest {
         this.confirmPassword = confirmPassword;
     }
 
+    public RegisterRequest(String username, String email, String firstName, String lastName,
+                           String password, String confirmPassword) {
+        this.username = username;
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.password = password;
+        this.confirmPassword = confirmPassword;
+    }
+
     public String getUsername() { return username; }
 
     public void setUsername(String username) { this.username = username; }
@@ -46,6 +64,14 @@ public class RegisterRequest {
     public String getEmail() { return email; }
 
     public void setEmail(String email) { this.email = email; }
+
+    public String getFirstName() { return firstName; }
+
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
     public String getPassword() { return password; }
 

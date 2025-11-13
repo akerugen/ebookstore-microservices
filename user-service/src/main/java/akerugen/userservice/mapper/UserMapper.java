@@ -17,16 +17,24 @@ public class UserMapper {
         response.setId(user.getId());
         response.setUsername(user.getUsername());
         response.setEmail(user.getEmail());
+        response.setFirstName(user.getFirstName());
+        response.setLastName(user.getLastName());
+        response.setDateOfBirth(user.getDateOfBirth());
         response.setCreatedAt(user.getCreatedAt());
+        response.setUpdatedAt(user.getUpdatedAt());
         return response;
     }
 
     public UserEntity toEntity(UserRequestDto request) {
+        if (request == null) {
+            return null;
+        }
         UserEntity user = new UserEntity();
-        user.setUsername(request.getUsername());
+        user.setFirstName(request.getFirstName());
         user.setEmail(request.getEmail());
-        user.setPassword(request.getPassword()); // TODO: добавить шифрование
-        user.setCreatedAt(java.time.LocalDateTime.now());
+        user.setLastName(request.getLastName());
+        user.setUsername(request.getUsername());
+        user.setDateOfBirth(request.getDateOfBirth());
         return user;
     }
 }

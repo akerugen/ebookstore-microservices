@@ -10,7 +10,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,6 +35,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserResponseDto> getAllUsers() {
         List<UserEntity> users = userRepository.findAll();
         return users.stream()
@@ -41,7 +44,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponseDto getUser(Long id) {
+    @Transactional(readOnly = true)
+    public UserResponseDto getUserById(Long id) {
         logger.info("Fetching user with id: {}", id);
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
@@ -49,11 +53,51 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public UserResponseDto getUserByUsername(String username) {
+        logger.info("Fetching user with username: {}", username);
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
+        return userMapper.toResponseDto(user);
+    }
+
+    @Override
     public UserResponseDto createUser(UserRequestDto request) {
         logger.info("Creating user with username: {}", request.getUsername());
         userValidator.validate(request, null, false); // полная валидация
+
+        // Проверка уникальности
+        if (userRepository.existsByUsernameOrEmail(request.getUsername(), request.getEmail())) {
+            throw new RuntimeException("User with this username or email already exists");
+        }
+
         UserEntity user = userMapper.toEntity(request);
+        user.setCreatedAt(LocalDateTime.now());
         userRepository.save(user);
+
+        logger.info("User created with id: {}", user.getId());
+        return userMapper.toResponseDto(user);
+    }
+
+    /**
+     * internal endpoint для auth-service
+     * Используется только при регистрации через auth-service
+     * Не требует дополнительной валидации
+     */
+    @Override
+    public UserResponseDto createUserInternal(UserRequestDto request) {
+        logger.info("Creating user internally from auth-service: {}", request.getUsername());
+
+        // Проверка уникальности (критично!)
+        if (userRepository.existsByUsernameOrEmail(request.getUsername(), request.getEmail())) {
+            throw new RuntimeException("User with this username or email already exists");
+        }
+
+        UserEntity user = userMapper.toEntity(request);
+        user.setCreatedAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        logger.info("User created internally with id: {}", user.getId());
         return userMapper.toResponseDto(user);
     }
 
@@ -65,8 +109,37 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        user.setPassword(request.getPassword()); // TODO: добавить шифрование
+        // user.setPassword(request.getPassword());
         userRepository.save(user);
+        return userMapper.toResponseDto(user);
+    }
+
+    /**
+     * Обновить профиль пользователя по username
+     * Используется для обновления через Gateway (который знает только username) TODO: может быть стоит поправить
+     */
+    @Override
+    public UserResponseDto updateUserByUsername(String username, UserRequestDto request) {
+        logger.info("Updating user with username: {}", username);
+
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
+
+        // Обновляем только поля профиля
+        if (request.getFirstName() != null) {
+            user.setFirstName(request.getFirstName());
+        }
+        if (request.getLastName() != null) {
+            user.setLastName(request.getLastName());
+        }
+        if (request.getDateOfBirth() != null) {
+            user.setDateOfBirth(request.getDateOfBirth());
+        }
+
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        logger.info("User updated with username: {}", username);
         return userMapper.toResponseDto(user);
     }
 
@@ -83,5 +156,29 @@ public class UserServiceImpl implements UserService {
     public void deleteAllUsers() {
         logger.info("Deleting all users");
         userRepository.deleteAll();
+    }
+
+    /**
+     * Проверить существует ли пользователь (для auth-service)
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public boolean userExists(String username, String email) {
+        logger.debug("Checking if user exists: username={}, email={}", username, email);
+        return userRepository.existsByUsernameOrEmail(username, email);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByUsername(String username) {
+        logger.debug("Checking if username exists: {}", username);
+        return userRepository.existsByUsername(username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByEmail(String email) {
+        logger.debug("Checking if email exists: {}", email);
+        return userRepository.existsByEmail(email);
     }
 }

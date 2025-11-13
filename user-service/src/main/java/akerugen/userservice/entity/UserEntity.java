@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -26,14 +27,21 @@ public class UserEntity {
     @Column(name = "email", unique = true, nullable = false)
     private String email;
 
-    @Size(min = 6)
-    @NotNull
-    @Column(name = "password", nullable = false)
-    private String password;
+    @Column(name = "first_name", length = 50)
+    private String firstName;
+
+    @Column(name = "last_name", length = 50)
+    private String lastName;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     public Long getId() { return id; }
 
@@ -47,11 +55,23 @@ public class UserEntity {
 
     public void setEmail(String email) { this.email = email; }
 
-    public String getPassword() { return password; }
+    public String getFirstName() { return firstName; }
 
-    public void setPassword(String password) { this.password = password; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+
+    public String getLastName() { return lastName; }
+
+    public void setLastName(String lastName) { this.lastName = lastName; }
+
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

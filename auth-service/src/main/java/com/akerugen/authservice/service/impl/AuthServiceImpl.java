@@ -9,14 +9,16 @@ import com.akerugen.authservice.entity.Credentials;
 import com.akerugen.authservice.exception.AuthenticationException;
 import com.akerugen.authservice.exception.TokenException;
 import com.akerugen.authservice.feign.UserServiceClient;
+import com.akerugen.authservice.feign.dto.CheckUserExistsResponse;
 import com.akerugen.authservice.feign.dto.UserRequestDto;
+import com.akerugen.authservice.feign.dto.UserResponseDto;
 import com.akerugen.authservice.security.JwtTokenProvider;
 import com.akerugen.authservice.service.AuthService;
 import com.akerugen.authservice.service.CredentialsService;
 import com.akerugen.authservice.service.RefreshTokenService;
 import com.akerugen.authservice.validator.CredentialsValidator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthServiceImpl implements AuthService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
+    private static final Logger logger = LogManager.getLogger(AuthServiceImpl.class);
 
     private final CredentialsService credentialsService;
     private final JwtTokenProvider jwtTokenProvider;
@@ -55,39 +57,73 @@ public class AuthServiceImpl implements AuthService {
         this.userServiceClient = userServiceClient;
     }
 
+    /**
+     * Регистрирует нового пользователя
+     *
+     * Flow:
+     * 1. Валидирует данные
+     * 2. Проверяет уникальность через user-service
+     * 3. Создаёт credentials в auth-service
+     * 4. Создаёт профиль в user-service
+     * 5. Генерирует токены
+     */
     @Override
     public AuthResponse register(RegisterRequest request) {
         logger.info("Starting registration for user: {}", request.getUsername());
 
-        // валидация данных
+        // 1. Валидация
         credentialsValidator.validateRegisterRequest(request);
 
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            logger.warn("Passwords don't match for user: {}", request.getUsername());
+            throw new AuthenticationException("Passwords do not match");
+        }
+
         try {
-            // 1. Создаем пользователя в user-service
+            // 2. Проверяем уникальность через user-service
+            CheckUserExistsResponse existsResponse = userServiceClient.checkUserExists(
+                    request.getUsername(),
+                    request.getEmail()
+            );
+
+            if (existsResponse.isExists()) {
+                logger.warn("User already exists: {}", request.getUsername());
+                throw new AuthenticationException("User with this username or email already exists");
+            }
+
+            // 3. Создаём credentials в auth-service
+            Credentials credentials = credentialsService.createCredentials(request);
+            logger.info("Credentials created for user: {}", request.getUsername());
+
+            // 4. Создаём профиль в user-service
             UserRequestDto userRequest = new UserRequestDto(
                     request.getUsername(),
                     request.getEmail(),
-                    request.getPassword()
+                    request.getFirstName(),
+                    request.getLastName()
             );
 
-            var userResponse = userServiceClient.createUser(userRequest).getBody();
-            if (userResponse == null || userResponse.id == null) {
-                throw new AuthenticationException("Failed to create user in user-service");
+            UserResponseDto userResponse = userServiceClient.createUser(userRequest);
+            if (userResponse == null || userResponse.getId() == null) {
+                throw new AuthenticationException("Failed to create user profile in user-service");
             }
 
-            Long userId = userResponse.id;
-            logger.info("User created in user-service with id: {}", userId);
+            logger.info("User profile created in user-service for id: {}", userResponse.getId());
 
-            // 2. Создаем credentials в auth-service
-            Credentials credentials = credentialsService.createCredentials(request, userId);
-            logger.info("Credentials created for user: {}", userId);
+            // 5. Генерируем токены
+            String role = credentials.getRole().getAuthority();
+            String accessToken = jwtTokenProvider.generateAccessToken(
+                    userResponse.getId(),
+                    credentials.getUsername(),
+                    role
+            );
+            String refreshToken = jwtTokenProvider.generateRefreshToken(
+                    userResponse.getId(),
+                    credentials.getUsername(),
+                    role
+            );
 
-            // 3. Генерируем токены
-            String accessToken = jwtTokenProvider.generateAccessToken(userId, request.getUsername());
-            String refreshToken = jwtTokenProvider.generateRefreshToken(userId, request.getUsername());
-
-            // 4. Сохраняем refresh token
-            refreshTokenService.storeRefreshToken(refreshToken, userId, refreshTokenExpiration);
+            refreshTokenService.storeRefreshToken(refreshToken, refreshTokenExpiration);
 
             logger.info("Registration completed for user: {}", request.getUsername());
 
@@ -95,8 +131,8 @@ public class AuthServiceImpl implements AuthService {
                     accessToken,
                     refreshToken,
                     "Bearer",
-                    userId,
-                    request.getUsername(),
+                    userResponse.getId(),
+                    credentials.getUsername(),
                     accessTokenExpiration
             );
 
@@ -106,46 +142,68 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Логирует пользователя
+     *
+     * Flow:
+     * 1. Ищет credentials по username/email
+     * 2. Проверяет активность
+     * 3. Проверяет пароль
+     * 4. Обновляет lastLogin
+     * 5. Генерирует токены
+     */
     @Override
     public AuthResponse login(LoginRequest request) {
         logger.info("Starting login for user: {}", request.getUsernameOrEmail());
 
         try {
-            // ищем юзера по username или email
+            // 1. Ищем credentials
             Credentials credentials = credentialsService.findByUsernameOrEmail(
                     request.getUsernameOrEmail(),
                     request.getUsernameOrEmail()
             );
 
-            // проверяем статус
+            // 2. Проверяем активность
             if (!credentials.getIsActive()) {
+                logger.warn("User account is deactivated: {}", credentials.getUsername());
                 throw new AuthenticationException("User account is deactivated");
             }
 
-            // проверяем пароль
+            // 3. Проверяем пароль
             if (!passwordEncoder.matches(request.getPassword(), credentials.getPassword())) {
                 logger.warn("Invalid password for user: {}", credentials.getUsername());
+                credentialsService.incrementFailedLoginAttempts(credentials.getUsername());
                 throw new AuthenticationException("Invalid credentials");
             }
 
-            Long userId = credentials.getUserId();
-            String username = credentials.getUsername();
+            // 4. Сбрасываем счётчик неудачных попыток
+            credentialsService.resetFailedLoginAttempts(credentials.getUsername());
+            credentialsService.updateLastLogin(credentials.getUsername());
 
-            // генерим токены
-            String accessToken = jwtTokenProvider.generateAccessToken(userId, username);
-            String refreshToken = jwtTokenProvider.generateRefreshToken(userId, username);
+            // 5. Генерируем токены
+            // Важно: userId может быть null для SUPER_USER, используем username как основу
+            String role = credentials.getRole().getAuthority();
+            String accessToken = jwtTokenProvider.generateAccessToken(
+                    credentials.getId(),  // используем ID из credentials
+                    credentials.getUsername(),
+                    role
+            );
+            String refreshToken = jwtTokenProvider.generateRefreshToken(
+                    credentials.getId(),
+                    credentials.getUsername(),
+                    role
+            );
 
-            // сохраняем refresh token
-            refreshTokenService.storeRefreshToken(refreshToken, userId, refreshTokenExpiration);
+            refreshTokenService.storeRefreshToken(refreshToken, refreshTokenExpiration);
 
-            logger.info("Login successful for user: {}", username);
+            logger.info("Login successful for user: {} with role: {}", credentials.getUsername(), role);
 
             return new AuthResponse(
                     accessToken,
                     refreshToken,
                     "Bearer",
-                    userId,
-                    username,
+                    credentials.getId(),
+                    credentials.getUsername(),
                     accessTokenExpiration
             );
 
@@ -155,30 +213,32 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Восстанавливает access token
+     */
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         logger.info("Starting token refresh");
 
         try {
-            // валидируем refresh token
             String refreshToken = request.getRefreshToken();
+
             jwtTokenProvider.validateToken(refreshToken);
             refreshTokenService.isRefreshTokenValid(refreshToken);
 
-            // извлекаем userId из refresh token
-            Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+            Long credentialsId = jwtTokenProvider.getUserIdFromToken(refreshToken);
             String username = jwtTokenProvider.getUsernameFromToken(refreshToken);
+            String role = jwtTokenProvider.getRoleFromToken(refreshToken);
 
-            // генерим новый access token
-            String newAccessToken = jwtTokenProvider.generateAccessToken(userId, username);
+            String newAccessToken = jwtTokenProvider.generateAccessToken(credentialsId, username, role);
 
-            logger.info("Token refreshed for user: {}", userId);
+            logger.info("Token refreshed for user: {} with role: {}", username, role);
 
             return new AuthResponse(
                     newAccessToken,
                     refreshToken,
                     "Bearer",
-                    userId,
+                    credentialsId,
                     username,
                     accessTokenExpiration
             );
@@ -189,29 +249,36 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Валидирует JWT токен
+     */
     @Override
     public ValidationResponse validateToken(String token) {
         try {
             jwtTokenProvider.validateToken(token);
-            Long userId = jwtTokenProvider.getUserIdFromToken(token);
+            Long credentialsId = jwtTokenProvider.getUserIdFromToken(token);
             String username = jwtTokenProvider.getUsernameFromToken(token);
+            String role = jwtTokenProvider.getRoleFromToken(token);
 
-            logger.debug("Token validated for user: {}", userId);
+            logger.debug("Token validated for user: {} with role: {}", username, role);
 
-            return new ValidationResponse(true, userId, username);
+            return new ValidationResponse(true, credentialsId, username, role);
 
         } catch (TokenException ex) {
             logger.error("Token validation failed: {}", ex.getMessage());
-            return new ValidationResponse(false, null, null);
+            return new ValidationResponse(false, null, null, null);
         }
     }
 
+    /**
+     * Логирует пользователя из системы
+     */
     @Override
     public void logout(String refreshToken) {
         try {
-            Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
-            refreshTokenService.revokeAllUserTokens(userId);
-            logger.info("User logged out: {}", userId);
+            logger.info("Processing logout");
+            refreshTokenService.revokeAllUserTokens(refreshToken);
+            logger.info("User logged out successfully");
         } catch (Exception ex) {
             logger.error("Logout failed: {}", ex.getMessage());
             throw new TokenException("Logout failed");

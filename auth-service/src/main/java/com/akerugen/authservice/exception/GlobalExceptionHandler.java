@@ -22,10 +22,10 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         logger.error("Authentication error: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
-                ex.getMessage(),
                 HttpStatus.UNAUTHORIZED.value(),
-                LocalDateTime.now(),
-                request.getDescription(false).replace("uri=", "")
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", ""),
+                LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
@@ -36,10 +36,10 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         logger.error("Token error: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
-                ex.getMessage(),
                 HttpStatus.UNAUTHORIZED.value(),
-                LocalDateTime.now(),
-                request.getDescription(false).replace("uri=", "")
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", ""),
+                LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
@@ -57,10 +57,10 @@ public class GlobalExceptionHandler {
 
         logger.error("Validation error: {}", message);
         ErrorResponse error = new ErrorResponse(
-                message,
                 HttpStatus.BAD_REQUEST.value(),
-                LocalDateTime.now(),
-                request.getDescription(false).replace("uri=", "")
+                message,
+                request.getDescription(false).replace("uri=", ""),
+                LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
@@ -71,10 +71,10 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         logger.error("Unexpected error: {}", ex.getMessage(), ex);
         ErrorResponse error = new ErrorResponse(
-                "An unexpected error occurred",
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                LocalDateTime.now(),
-                request.getDescription(false).replace("uri=", "")
+                "An unexpected error occurred",
+                request.getDescription(false).replace("uri=", ""),
+                LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }

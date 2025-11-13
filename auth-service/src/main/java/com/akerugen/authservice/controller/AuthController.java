@@ -5,18 +5,22 @@ import com.akerugen.authservice.dto.request.RegisterRequest;
 import com.akerugen.authservice.dto.request.RefreshTokenRequest;
 import com.akerugen.authservice.dto.response.AuthResponse;
 import com.akerugen.authservice.dto.response.ValidationResponse;
+import com.akerugen.authservice.exception.ErrorResponse;
 import com.akerugen.authservice.service.AuthService;
+import com.akerugen.authservice.util.AuthenticationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -26,35 +30,68 @@ public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthService authService;
+    private final AuthenticationUtil authenticationUtil;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, AuthenticationUtil authenticationUtil) {
         this.authService = authService;
+        this.authenticationUtil = authenticationUtil;
     }
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Creates a new user account")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "User registered successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid input or user already exists"),
+            @ApiResponse(responseCode = "400", description = "Invalid input"),
+            @ApiResponse(responseCode = "409", description = "User already authenticated"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        logger.info("Received registration request for: {}", request.getUsername());
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+        logger.info("Register endpoint called");
+
+        // Проверяем, авторизован ли пользователь
+        if (authenticationUtil.isUserAuthenticated()) {
+            String currentUsername = authenticationUtil.getCurrentUsername();
+            logger.warn("Attempt to register while authenticated as: {}", currentUsername);
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                    HttpStatus.CONFLICT.value(),
+                    "You are already authenticated as '" + currentUsername + "'. Please logout first to register a new account.",
+                    "/api/auth/register",
+                    LocalDateTime.now()
+            ));
+        }
+
         AuthResponse response = authService.register(request);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login user", description = "Authenticates user and returns JWT tokens")
+    @Operation(summary = "Login user", description = "Authenticates user and returns tokens")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Login successful"),
+            @ApiResponse(responseCode = "400", description = "Invalid input"),
             @ApiResponse(responseCode = "401", description = "Invalid credentials"),
+            @ApiResponse(responseCode = "409", description = "User already authenticated - please logout first"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        logger.info("Received login request for: {}", request.getUsernameOrEmail());
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
+        logger.info("Login endpoint called for user: {}", request.getUsernameOrEmail());
+
+        // Проверяем, авторизован ли пользователь
+        if (authenticationUtil.isUserAuthenticated()) {
+            String currentUsername = authenticationUtil.getCurrentUsername();
+            logger.warn("Attempt to login while authenticated as: {}", currentUsername);
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                    HttpStatus.CONFLICT.value(),
+                    "You are already authenticated as '" + currentUsername + "'. Please logout first to login as another user.",
+                    "/api/auth/login",
+                    LocalDateTime.now()
+            ));
+        }
+
         AuthResponse response = authService.login(request);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
     @PostMapping("/refresh")

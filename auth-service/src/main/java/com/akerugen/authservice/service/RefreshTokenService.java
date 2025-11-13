@@ -16,17 +16,26 @@ public class RefreshTokenService {
     // TODO: вместо хранения в памяти лучше потом будет Redis бахнуть
     private final ConcurrentHashMap<String, RefreshTokenData> tokenStore = new ConcurrentHashMap<>();
 
-    public void storeRefreshToken(String token, Long userId, Long expirationTime) {
-        RefreshTokenData data = new RefreshTokenData(userId, System.currentTimeMillis() + expirationTime);
+    /**
+     * Сохраняет refresh token
+     * @param token JWT refresh token
+     * @param expirationTime время жизни в миллисекундах
+     */
+    public void storeRefreshToken(String token, Long expirationTime) {
+        RefreshTokenData data = new RefreshTokenData(System.currentTimeMillis() + expirationTime);
         tokenStore.put(token, data);
-        logger.info("Refresh token stored for user: {}", userId);
+        logger.info("Refresh token stored, expiration time: {}ms", expirationTime);
     }
 
+    /**
+     * Проверяет валиден ли refresh token
+     */
     public boolean isRefreshTokenValid(String token) {
         RefreshTokenData data = tokenStore.get(token);
+
         if (data == null) {
-            logger.warn("Refresh token not found");
-            throw new TokenException("Refresh token is invalid");
+            logger.warn("Refresh token not found in store");
+            throw new TokenException("Refresh token is invalid or has been revoked");
         }
 
         if (data.expirationTime < System.currentTimeMillis()) {
@@ -38,29 +47,31 @@ public class RefreshTokenService {
         return true;
     }
 
-    public Long getUserIdFromRefreshToken(String token) {
-        if (!isRefreshTokenValid(token)) {
-            throw new TokenException("Invalid refresh token");
-        }
-        return tokenStore.get(token).userId;
-    }
-
+    /**
+     * Отозвать refresh token
+     */
     public void revokeRefreshToken(String token) {
         tokenStore.remove(token);
         logger.info("Refresh token revoked");
     }
 
-    public void revokeAllUserTokens(Long userId) {
-        tokenStore.entrySet().removeIf(entry -> entry.getValue().userId.equals(userId));
-        logger.info("All refresh tokens revoked for user: {}", userId);
+    /**
+     * Отозвать все refresh tokens (для logout)
+     */
+    public void revokeAllUserTokens(String token) {
+        // Т.к. token содержит информацию о пользователе (username, role)
+        // При logout мы просто удаляем этот токен
+        tokenStore.remove(token);
+        logger.info("User refresh token revoked");
     }
 
+    /**
+     * Внутренний класс для хранения данных refresh token
+     */
     private static class RefreshTokenData {
-        Long userId;
         Long expirationTime;
 
-        RefreshTokenData(Long userId, Long expirationTime) {
-            this.userId = userId;
+        RefreshTokenData(Long expirationTime) {
             this.expirationTime = expirationTime;
         }
     }
