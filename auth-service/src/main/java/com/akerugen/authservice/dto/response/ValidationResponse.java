@@ -1,6 +1,7 @@
 package com.akerugen.authservice.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+
 /*
     Ответ при валидации токена (при проверке в gateway или других сервисах)
  */

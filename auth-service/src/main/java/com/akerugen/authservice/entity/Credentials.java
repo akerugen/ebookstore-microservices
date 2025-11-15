@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 
 /**
  * Entity для хранения учётных данных (аутентификация)
- * НЕ СОДЕРЖИТ: userId (больше не нужен, используем username как бизнес-ключ)
  */
 @Entity
 @Table(name = "credentials")

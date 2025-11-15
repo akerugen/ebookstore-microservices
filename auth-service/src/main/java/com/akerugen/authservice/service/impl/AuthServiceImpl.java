@@ -59,8 +59,6 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * Регистрирует нового пользователя
-     *
-     * Flow:
      * 1. Валидирует данные
      * 2. Проверяет уникальность через user-service
      * 3. Создаёт credentials в auth-service
@@ -95,6 +93,14 @@ public class AuthServiceImpl implements AuthService {
             Credentials credentials = credentialsService.createCredentials(request);
             logger.info("Credentials created for user: {}", request.getUsername());
 
+            // Проверка сессии
+            if (refreshTokenService.hasActiveSession(credentials.getUsername())) {
+                logger.warn("User already has an active session");
+                throw new AuthenticationException(
+                        "User already has an active session. Please logout first before registering a new account."
+                );
+            }
+
             // 4. Создаём профиль в user-service
             UserRequestDto userRequest = new UserRequestDto(
                     request.getUsername(),
@@ -123,7 +129,11 @@ public class AuthServiceImpl implements AuthService {
                     role
             );
 
-            refreshTokenService.storeRefreshToken(refreshToken, refreshTokenExpiration);
+            refreshTokenService.storeRefreshToken(
+                    refreshToken,
+                    credentials.getUsername(),
+                    refreshTokenExpiration
+            );
 
             logger.info("Registration completed for user: {}", request.getUsername());
 
@@ -144,8 +154,6 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * Логирует пользователя
-     *
-     * Flow:
      * 1. Ищет credentials по username/email
      * 2. Проверяет активность
      * 3. Проверяет пароль
@@ -163,7 +171,13 @@ public class AuthServiceImpl implements AuthService {
                     request.getUsernameOrEmail()
             );
 
-            // 2. Проверяем активность
+            // 2. Проверяем сессию активность
+            if (refreshTokenService.hasActiveSession(credentials.getUsername())) {
+                logger.warn("User already has an active session");
+                throw new AuthenticationException(
+                        "User already has an active session. Please logout first before logging in again."
+                );
+            }
             if (!credentials.getIsActive()) {
                 logger.warn("User account is deactivated: {}", credentials.getUsername());
                 throw new AuthenticationException("User account is deactivated");
@@ -194,7 +208,11 @@ public class AuthServiceImpl implements AuthService {
                     role
             );
 
-            refreshTokenService.storeRefreshToken(refreshToken, refreshTokenExpiration);
+            refreshTokenService.storeRefreshToken(
+                    refreshToken,
+                    credentials.getUsername(),
+                    refreshTokenExpiration
+            );
 
             logger.info("Login successful for user: {} with role: {}", credentials.getUsername(), role);
 

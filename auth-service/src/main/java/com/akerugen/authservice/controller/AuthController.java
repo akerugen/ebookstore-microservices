@@ -1,11 +1,11 @@
 package com.akerugen.authservice.controller;
 
-import com.akerugen.authservice.dto.request.LoginRequest;
-import com.akerugen.authservice.dto.request.RegisterRequest;
-import com.akerugen.authservice.dto.request.RefreshTokenRequest;
+import com.akerugen.authservice.dto.request.*;
 import com.akerugen.authservice.dto.response.AuthResponse;
+import com.akerugen.authservice.dto.response.LogoutResponse;
 import com.akerugen.authservice.dto.response.ValidationResponse;
 import com.akerugen.authservice.exception.ErrorResponse;
+import com.akerugen.authservice.security.JwtTokenProvider;
 import com.akerugen.authservice.service.AuthService;
 import com.akerugen.authservice.util.AuthenticationUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,10 +31,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthenticationUtil authenticationUtil;
+    private final JwtTokenProvider jwtTokenProvider;
 
-    public AuthController(AuthService authService, AuthenticationUtil authenticationUtil) {
+    public AuthController(AuthService authService, AuthenticationUtil authenticationUtil, JwtTokenProvider jwtTokenProvider) {
         this.authService = authService;
         this.authenticationUtil = authenticationUtil;
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @PostMapping("/register")
@@ -47,19 +49,6 @@ public class AuthController {
     })
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         logger.info("Register endpoint called");
-
-        // Проверяем, авторизован ли пользователь
-        if (authenticationUtil.isUserAuthenticated()) {
-            String currentUsername = authenticationUtil.getCurrentUsername();
-            logger.warn("Attempt to register while authenticated as: {}", currentUsername);
-
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
-                    HttpStatus.CONFLICT.value(),
-                    "You are already authenticated as '" + currentUsername + "'. Please logout first to register a new account.",
-                    "/api/auth/register",
-                    LocalDateTime.now()
-            ));
-        }
 
         AuthResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -77,21 +66,50 @@ public class AuthController {
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         logger.info("Login endpoint called for user: {}", request.getUsernameOrEmail());
 
-        // Проверяем, авторизован ли пользователь
-        if (authenticationUtil.isUserAuthenticated()) {
-            String currentUsername = authenticationUtil.getCurrentUsername();
-            logger.warn("Attempt to login while authenticated as: {}", currentUsername);
-
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
-                    HttpStatus.CONFLICT.value(),
-                    "You are already authenticated as '" + currentUsername + "'. Please logout first to login as another user.",
-                    "/api/auth/login",
-                    LocalDateTime.now()
-            ));
-        }
-
         AuthResponse response = authService.login(request);
         return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    /**
+     * Логирует пользователя из системы
+     * Refresh token передаётся в теле запроса (POST body), а НЕ в URL
+     * Это безопаснее, так как:
+     * - Не видно в браузер истории
+     * - Не логируется в URL логах
+     * - Не передаётся через Referer header
+     */
+    @PostMapping("/logout")
+    @Operation(summary = "Logout user", description = "Revokes user's refresh tokens")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Logout successful"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "400", description = "Missing refreshToken"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<LogoutResponse> logout(@Valid @RequestBody LogoutRequest request) {
+        logger.info("Logout endpoint called");
+
+        if (request.getRefreshToken() == null || request.getRefreshToken().isEmpty()) {
+            throw new IllegalArgumentException("refreshToken is required");
+        }
+
+        try {
+            String username = jwtTokenProvider.getUsernameFromToken(request.getRefreshToken());
+            authService.logout(request.getRefreshToken());
+
+            LogoutResponse response = new LogoutResponse(
+                    200,
+                    "User logged out successfully",
+                    username
+            );
+
+            logger.info("User {} logged out successfully", username);
+            return ResponseEntity.status(HttpStatus.OK).body(response);
+
+        } catch (Exception ex) {
+            logger.error("Logout failed: {}", ex.getMessage());
+            throw ex;
+        }
     }
 
     @PostMapping("/refresh")
@@ -107,36 +125,20 @@ public class AuthController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    /**
+     * Валидирует access token
+     * Требует авторизации (authenticated endpoint)
+     */
     @PostMapping("/validate")
     @Operation(summary = "Validate access token", description = "Validates JWT access token")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Token validation result returned"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<ValidationResponse> validateToken(
-            @RequestParam String token) {
+    public ResponseEntity<ValidationResponse> validateToken(@Valid @RequestBody ValidateTokenRequest request) {
         logger.debug("Received token validation request");
-        ValidationResponse response = authService.validateToken(token);
+        ValidationResponse response = authService.validateToken(request.getToken());
         return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    @PostMapping("/logout")
-    @Operation(summary = "Logout user", description = "Revokes all refresh tokens for user")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Logout successful"),
-            @ApiResponse(responseCode = "401", description = "Invalid token"),
-            @ApiResponse(responseCode = "500", description = "Internal server error")
-    })
-    public ResponseEntity<Void> logout(
-            @RequestParam String refreshToken) {
-        logger.info("Received logout request");
-        authService.logout(refreshToken);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-    }
-
-    @GetMapping("/health")
-    @Operation(summary = "Health check", description = "Simple health check endpoint")
-    public ResponseEntity<String> health() {
-        return new ResponseEntity<>("Auth service is running", HttpStatus.OK);
     }
 }
