@@ -16,5 +16,5 @@ public interface AuthService {
 
     ValidationResponse validateToken(String token);
 
-    void logout(String refreshToken);
+    void logout(String refreshToken, String accessToken);
 }

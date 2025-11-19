@@ -3,97 +3,95 @@ package com.akerugen.authservice.service;
 import com.akerugen.authservice.exception.TokenException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Сервис для управления refresh tokens
- * TODO: потом мапы заменить на Redis
  */
 @Service
 public class RefreshTokenService {
 
     private static final Logger logger = LogManager.getLogger(RefreshTokenService.class);
 
-    // token -> RefreshTokenData
-    private final ConcurrentHashMap<String, RefreshTokenData> tokenStore = new ConcurrentHashMap<>();
+    private static final String REFRESH_TOKEN_PREFIX = "refresh_token:";
+    private static final String ACTIVE_SESSION_PREFIX = "active_session:";
 
-    // username -> refresh token (для проверки активных сессий)
-    private final ConcurrentHashMap<String, String> activeUserSessions = new ConcurrentHashMap<>();
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    public RefreshTokenService(RedisTemplate<String, Object> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     /**
-     * Сохраняет refresh token
+     * Сохраняет refresh token в Redis
+     *
+     * @param token JWT refresh token
+     * @param username имя пользователя
+     * @param expirationTimeMs время жизни в миллисекундах
      */
-    public void storeRefreshToken(String token, String username, Long expirationTime) {
-        RefreshTokenData data = new RefreshTokenData(username, System.currentTimeMillis() + expirationTime);
-        tokenStore.put(token, data);
+    public void storeRefreshToken(String token, String username, long expirationTimeMs) {
+        try {
+            // Ключ: refresh_token:{token}
+            String tokenKey = REFRESH_TOKEN_PREFIX + token;
+            redisTemplate.opsForValue().set(tokenKey, username, expirationTimeMs, TimeUnit.MILLISECONDS);
 
-        // Сохраняем активную сессию пользователя
-        activeUserSessions.put(username, token);
+            // Ключ: active_session:{username} -> token
+            String sessionKey = ACTIVE_SESSION_PREFIX + username;
+            redisTemplate.opsForValue().set(sessionKey, token, expirationTimeMs, TimeUnit.MILLISECONDS);
 
-        logger.info("Refresh token stored for user: {}, expiration: {}ms", username, expirationTime);
+            logger.info("Refresh token stored for user: {}, TTL: {}ms", username, expirationTimeMs);
+
+        } catch (Exception ex) {
+            logger.error("Failed to store refresh token: {}", ex.getMessage());
+            throw new RuntimeException("Failed to store refresh token", ex);
+        }
     }
 
     /**
      * Проверяет есть ли активная сессия у пользователя
-     * @param username имя пользователя
-     * @return true если есть активный refresh token
      */
     public boolean hasActiveSession(String username) {
-        String activeToken = activeUserSessions.get(username);
+        try {
+            String sessionKey = ACTIVE_SESSION_PREFIX + username;
+            Boolean exists = redisTemplate.hasKey(sessionKey);
 
-        if (activeToken == null) {
-            logger.debug("No active session found for user: {}", username);
-            return false;
-        }
-
-        // Проверяем что токен всё ещё валиден
-        RefreshTokenData data = tokenStore.get(activeToken);
-        if (data == null || data.expirationTime < System.currentTimeMillis()) {
-            // Токен истёк, удаляем
-            activeUserSessions.remove(username);
-            if (data != null) {
-                tokenStore.remove(activeToken);
+            if (Boolean.TRUE.equals(exists)) {
+                logger.debug("Active session found for user: {}", username);
+                return true;
             }
-            logger.debug("Active session expired for user: {}", username);
+
+            logger.debug("No active session for user: {}", username);
+            return false;
+
+        } catch (Exception ex) {
+            logger.error("Error checking active session: {}", ex.getMessage());
             return false;
         }
-
-        logger.debug("Active session found for user: {}", username);
-        return true;
     }
 
     /**
      * Проверяет валиден ли refresh token
      */
     public boolean isRefreshTokenValid(String token) {
-        RefreshTokenData data = tokenStore.get(token);
+        try {
+            String tokenKey = REFRESH_TOKEN_PREFIX + token;
+            Object username = redisTemplate.opsForValue().get(tokenKey);
 
-        if (data == null) {
-            logger.warn("Refresh token not found in store");
-            throw new TokenException("Refresh token is invalid or has been revoked");
-        }
+            if (username == null) {
+                logger.warn("Refresh token not found or expired");
+                throw new TokenException("Refresh token is invalid or has been revoked");
+            }
 
-        if (data.expirationTime < System.currentTimeMillis()) {
-            tokenStore.remove(token);
-            activeUserSessions.remove(data.username);
-            logger.warn("Refresh token has expired for user: {}", data.username);
-            throw new TokenException("Refresh token has expired");
-        }
+            return true;
 
-        return true;
-    }
-
-    /**
-     * Отозвать refresh token
-     */
-    public void revokeRefreshToken(String token) {
-        RefreshTokenData data = tokenStore.remove(token);
-        if (data != null) {
-            activeUserSessions.remove(data.username);
-            logger.info("Refresh token revoked for user: {}", data.username);
+        } catch (Exception ex) {
+            logger.error("Error validating refresh token: {}", ex.getMessage());
+            throw new TokenException("Failed to validate refresh token");
         }
     }
 
@@ -101,34 +99,43 @@ public class RefreshTokenService {
      * Отозвать все refresh tokens пользователя (для logout)
      */
     public void revokeAllUserTokens(String token) {
-        RefreshTokenData data = tokenStore.get(token);
+        try {
+            String tokenKey = REFRESH_TOKEN_PREFIX + token;
+            Object username = redisTemplate.opsForValue().get(tokenKey);
 
-        if (data != null) {
-            String username = data.username;
+            if (username != null) {
+                String sessionKey = ACTIVE_SESSION_PREFIX + username.toString();
+                redisTemplate.delete(tokenKey);
+                redisTemplate.delete(sessionKey);
+                logger.info("All refresh tokens revoked for user: {}", username);
+            } else {
+                redisTemplate.delete(tokenKey);
+                logger.warn("Attempted to revoke unknown token");
+            }
 
-            // Удаляем все токены этого пользователя
-            tokenStore.entrySet().removeIf(entry ->
-                    entry.getValue().username.equals(username)
-            );
-
-            activeUserSessions.remove(username);
-            logger.info("All refresh tokens revoked for user: {}", username);
-        } else {
-            tokenStore.remove(token);
-            logger.warn("Attempted to revoke unknown token");
+        } catch (Exception ex) {
+            logger.error("Error revoking tokens: {}", ex.getMessage());
+            throw new RuntimeException("Failed to revoke tokens", ex);
         }
     }
 
     /**
-     * Внутренний класс для хранения данных refresh token
+     * Получить username из token'а (используется для logout)
      */
-    private static class RefreshTokenData {
-        String username;
-        Long expirationTime;
+    public String getUsernameFromToken(String token) {
+        try {
+            String tokenKey = REFRESH_TOKEN_PREFIX + token;
+            Object username = redisTemplate.opsForValue().get(tokenKey);
 
-        RefreshTokenData(String username, Long expirationTime) {
-            this.username = username;
-            this.expirationTime = expirationTime;
+            if (username == null) {
+                throw new TokenException("Token not found");
+            }
+
+            return username.toString();
+
+        } catch (Exception ex) {
+            logger.error("Error getting username from token: {}", ex.getMessage());
+            throw new TokenException("Failed to get username from token");
         }
     }
 }

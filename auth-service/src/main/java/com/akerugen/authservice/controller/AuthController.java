@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,14 +80,17 @@ public class AuthController {
      * - Не передаётся через Referer header
      */
     @PostMapping("/logout")
-    @Operation(summary = "Logout user", description = "Revokes user's refresh tokens")
+    @Operation(summary = "Logout user", description = "Revokes user's tokens")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Logout successful"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @ApiResponse(responseCode = "400", description = "Missing refreshToken"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing access token in header"),
+            @ApiResponse(responseCode = "400", description = "Missing tokens in body"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<LogoutResponse> logout(@Valid @RequestBody LogoutRequest request) {
+    public ResponseEntity<LogoutResponse> logout(
+            HttpServletRequest httpRequest,
+            @Valid @RequestBody LogoutRequest request) {
+
         logger.info("Logout endpoint called");
 
         if (request.getRefreshToken() == null || request.getRefreshToken().isEmpty()) {
@@ -94,8 +98,22 @@ public class AuthController {
         }
 
         try {
+            // Извлекаем access token из Authorization header
+            String authHeader = httpRequest.getHeader("Authorization");
+            String accessToken = null;
+
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                accessToken = authHeader.substring(7);
+            } else {
+                throw new org.springframework.security.authentication.BadCredentialsException(
+                        "Authorization header with Bearer token is required"
+                );
+            }
+
             String username = jwtTokenProvider.getUsernameFromToken(request.getRefreshToken());
-            authService.logout(request.getRefreshToken());
+
+            // Передаём оба токена
+            authService.logout(request.getRefreshToken(), accessToken);
 
             LogoutResponse response = new LogoutResponse(
                     200,
@@ -112,6 +130,7 @@ public class AuthController {
         }
     }
 
+
     @PostMapping("/refresh")
     @Operation(summary = "Refresh access token", description = "Generates a new access token using refresh token")
     @ApiResponses(value = {
@@ -127,17 +146,26 @@ public class AuthController {
 
     /**
      * Валидирует access token
-     * Требует авторизации (authenticated endpoint)
+     * Authorization Header требуется для аутентификации
+     * Token в body для валидации
      */
     @PostMapping("/validate")
     @Operation(summary = "Validate access token", description = "Validates JWT access token")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Token validation result returned"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid access token"),
+            @ApiResponse(responseCode = "400", description = "Missing token in body"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<ValidationResponse> validateToken(@Valid @RequestBody ValidateTokenRequest request) {
+    public ResponseEntity<ValidationResponse> validateToken(
+            @Valid @RequestBody ValidateTokenRequest request) {
+
         logger.debug("Received token validation request");
+
+        if (request.getToken() == null || request.getToken().isEmpty()) {
+            throw new IllegalArgumentException("token is required");
+        }
+
         ValidationResponse response = authService.validateToken(request.getToken());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

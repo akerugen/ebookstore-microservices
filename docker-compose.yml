@@ -54,12 +54,17 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://auth-service-postgres:5432/auth_service_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
-      - JWT_SECRET=your-super-secret-key-change-in-production-at-least-256-bits-long-key-please
+      - JWT_SECRET=e7b1324642c76106e9e685101203d88c5694320b41ce3b270f989bc5069757ba
       - JWT_ACCESS_TOKEN_EXPIRATION=3600000
       - JWT_REFRESH_TOKEN_EXPIRATION=604800000
       - USER_SERVICE_URL=http://user-service:8081
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - USER_SERVICE_URL=http://user-service:8081
     depends_on:
       auth-service-postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - ebookstore-microservices
@@ -87,6 +92,22 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: ebookstore-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   ebookstore-microservices:
     driver: bridge
@@ -94,3 +115,4 @@ networks:
 volumes:
   user_service_postgres_data:
   auth_service_postgres_data:
+  redis_data:

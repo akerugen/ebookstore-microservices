@@ -1,6 +1,7 @@
 package com.akerugen.authservice.security;
 
 import com.akerugen.authservice.exception.TokenException;
+import com.akerugen.authservice.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,10 +32,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LogManager.getLogger(JwtAuthenticationFilter.class);
     private final JwtTokenProvider jwtTokenProvider;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Autowired
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, TokenBlacklistService tokenBlacklistService) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Override
@@ -47,6 +50,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (jwt != null && !jwt.isEmpty()) {
                 logger.debug("JWT token found in request");
+
+                if (tokenBlacklistService.isTokenBlacklisted(jwt)) {
+                    logger.warn("Token is blacklisted - rejecting");
+                    // Не аутентифицируем, продолжаем цепь
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 // валидируем токен
                 if (jwtTokenProvider.validateToken(jwt)) {

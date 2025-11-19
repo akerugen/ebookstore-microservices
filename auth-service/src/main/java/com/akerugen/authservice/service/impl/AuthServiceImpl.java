@@ -16,9 +16,11 @@ import com.akerugen.authservice.security.JwtTokenProvider;
 import com.akerugen.authservice.service.AuthService;
 import com.akerugen.authservice.service.CredentialsService;
 import com.akerugen.authservice.service.RefreshTokenService;
+import com.akerugen.authservice.service.TokenBlacklistService;
 import com.akerugen.authservice.validator.CredentialsValidator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,9 @@ public class AuthServiceImpl implements AuthService {
     private final CredentialsValidator credentialsValidator;
     private final PasswordEncoder passwordEncoder;
     private final UserServiceClient userServiceClient;
+
+    @Autowired
+    private TokenBlacklistService tokenBlacklistService;
 
     @Value("${jwt.access-token-expiration}")
     private long accessTokenExpiration;
@@ -273,7 +278,16 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public ValidationResponse validateToken(String token) {
         try {
+            // 1.  Проверяем blacklist ПЕРВЫМ!
+            if (tokenBlacklistService.isTokenBlacklisted(token)) {
+                logger.warn("Token validation failed: token is blacklisted");
+                return new ValidationResponse(false, null, null, null);
+            }
+
+            // 2. Валидируем JWT подпись и TTL
             jwtTokenProvider.validateToken(token);
+
+            // 3. Извлекаем данные из токена
             Long credentialsId = jwtTokenProvider.getUserIdFromToken(token);
             String username = jwtTokenProvider.getUsernameFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
@@ -292,11 +306,30 @@ public class AuthServiceImpl implements AuthService {
      * Логирует пользователя из системы
      */
     @Override
-    public void logout(String refreshToken) {
+    public void logout(String refreshToken, String accessToken) {
         try {
             logger.info("Processing logout");
+
+            String username = refreshTokenService.getUsernameFromToken(refreshToken);
+
             refreshTokenService.revokeAllUserTokens(refreshToken);
-            logger.info("User logged out successfully");
+
+            try {
+                // Получаем оставшееся время жизни access token'а
+                long accessTokenTTL = jwtTokenProvider.getExpirationTimeMs(accessToken);
+
+                if (accessTokenTTL > 0) {
+                    tokenBlacklistService.blacklistToken(accessToken, accessTokenTTL);
+                    logger.info("Access token added to blacklist for user: {}, TTL: {}ms", username, accessTokenTTL);
+                } else {
+                    logger.warn("Access token already expired, skipping blacklist");
+                }
+            } catch (Exception ex) {
+                logger.warn("Failed to blacklist access token: {}", ex.getMessage());
+            }
+
+            logger.info("User {} logged out successfully", username);
+
         } catch (Exception ex) {
             logger.error("Logout failed: {}", ex.getMessage());
             throw new TokenException("Logout failed");
