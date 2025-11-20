@@ -101,16 +101,22 @@ public class RefreshTokenService {
     public void revokeAllUserTokens(String token) {
         try {
             String tokenKey = REFRESH_TOKEN_PREFIX + token;
+            logger.info("Revoking tokens for key: {}", tokenKey);
+
             Object username = redisTemplate.opsForValue().get(tokenKey);
+            logger.info("Username from token: {}", username);
 
             if (username != null) {
                 String sessionKey = ACTIVE_SESSION_PREFIX + username.toString();
+                logger.info("Deleting token key: {}", tokenKey);
+                logger.info("Deleting session key: {}", sessionKey);
+
                 redisTemplate.delete(tokenKey);
                 redisTemplate.delete(sessionKey);
                 logger.info("All refresh tokens revoked for user: {}", username);
             } else {
                 redisTemplate.delete(tokenKey);
-                logger.warn("Attempted to revoke unknown token");
+                logger.warn("Attempted to revoke unknown token, key: {}", tokenKey);
             }
 
         } catch (Exception ex) {
