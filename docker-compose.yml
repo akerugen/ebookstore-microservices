@@ -7,8 +7,8 @@ services:
     build:
       context: ./user-service
       dockerfile: Dockerfile
-    ports:
-      - "9091:8081" # Внешний порт : Внутренний порт
+    # ports:
+    #  - "9091:8081" # Внешний порт : Внутренний порт
     environment:
       - SERVER_PORT=8081
       - SPRING_DATASOURCE_URL=jdbc:postgresql://user-service-postgres:5432/user_service_db
@@ -55,8 +55,8 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
-    ports:
-      - "9092:8082"
+    # ports:
+    #  - "9092:8082"
     environment:
       - SERVER_PORT=8082
       - SPRING_DATASOURCE_URL=jdbc:postgresql://auth-service-postgres:5432/auth_service_db
@@ -128,6 +128,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  nginx:
+    image: ebookstore-microservices/nginx-gateway:latest
+    container_name: nginx-gateway
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"  # HTTP (ЕДИНСТВЕННЫЙ ВНЕШНИЙ ПОРТ!)
+    depends_on:
+      - auth-service
+      - user-service
+    networks:
+      - ebookstore-microservices
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: unless-stopped
 
 networks:

@@ -169,4 +169,49 @@ public class AuthController {
         ValidationResponse response = authService.validateToken(request.getToken());
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    /**
+     * Валидация токена для Nginx (через header)
+     * Используется только Nginx Gateway через auth_request
+     * Endpoint: GET /api/auth/validate-header
+     */
+    @GetMapping("/validate-header")
+    @Operation(summary = "Validate token from header (for Nginx)",
+            description = "Validates JWT token from Authorization header. Returns 200 if valid, 401 if invalid.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Token is valid"),
+            @ApiResponse(responseCode = "401", description = "Token is invalid or missing")
+    })
+    public ResponseEntity<Void> validateTokenFromHeader(HttpServletRequest request) {
+        logger.debug("Received token validation request from Nginx");
+
+        try {
+            // Извлекаем токен из Authorization header
+            String authHeader = request.getHeader("Authorization");
+
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                logger.warn("No Authorization header or invalid format");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String token = authHeader.substring(7);
+
+            // Валидируем токен
+            ValidationResponse validation = authService.validateToken(token);
+
+            if (Boolean.TRUE.equals(validation.getValid())) {
+                logger.debug("Token is valid for user: {}", validation.getUsername());
+                // возвращаем 200 OK - nginx пропустит запрос
+                return ResponseEntity.ok().build();
+            } else {
+                logger.warn("Token validation failed");
+                // возвращаем 401 Unauthorized - nginx отклонит запрос
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+        } catch (Exception ex) {
+            logger.error("Token validation error: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
 }
