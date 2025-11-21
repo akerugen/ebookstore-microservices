@@ -1,6 +1,5 @@
 HELP.md
 target/
-.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -59,10 +58,7 @@ pom.xml.versionsBackup
 pom.xml.releaseBackup
 release.properties
 dependency-reduced-pom.xml
-.mvn/
-mvnw
-mvnw.cmd
-.mvn/wrapper/
+
 
 # Gradle
 .gradle/
@@ -78,15 +74,6 @@ gradle-app.setting
 # Virtual machine crash logs
 hs_err_pid*
 replay_pid*
-
-### Spring Boot ###
-# Spring Boot jar and devtools
-*.jar
-.springbeans
-application.properties
-application.yml
-application-*.properties
-application-*.yml
 
 # Spring Boot
 spring.log
@@ -151,17 +138,6 @@ coverage/
 # Parcel cache
 .cache
 .parcel-cache
-
-# Docker
-docker-compose.override.yml
-*.dockerignore
-*.container
-*.docker
-
-# Kubernetes
-*.kube
-kubeconfig
-*.yaml.bak
 
 # Temporary files
 *.temp
