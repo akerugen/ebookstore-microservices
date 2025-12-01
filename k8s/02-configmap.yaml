@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ebookstore
+data:
+  # auth-service
+  AUTH_DB_HOST: "auth-db"
+  AUTH_DB_PORT: "5432"
+  AUTH_DB_NAME: "auth_service_db"
+  AUTH_DB_USER: "postgres"
+  JWT_EXPIRATION: "3600000"  # 1 час в ms
+  REFRESH_TOKEN_EXPIRATION: "604800000"  # 7 дней в ms
+
+  # user-service
+  USER_DB_HOST: "user-db"
+  USER_DB_PORT: "5432"
+  USER_DB_NAME: "user_service_db"
+  USER_DB_USER: "postgres"
+
+  # redis
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+
+  # application
+  APP_ENV: "kubernetes"
+  SPRING_PROFILES_ACTIVE: "prod"
