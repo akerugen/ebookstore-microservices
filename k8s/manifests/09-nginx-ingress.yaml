@@ -3,13 +3,10 @@ kind: Ingress
 metadata:
   name: ebookstore-ingress
   namespace: ebookstore
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx
   rules:
-    - host: "localhost"
-      http:
+    - http:
         paths:
           - path: /api/auth
             pathType: Prefix
