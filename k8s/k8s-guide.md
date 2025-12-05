@@ -131,10 +131,6 @@ COMMENT ON COLUMN users.created_at IS 'Дата создания профиля'
 COMMENT ON COLUMN users.updated_at IS 'Дата изменения профиля';
 
 
-CREATE INDEX IF NOT EXISTS idx_credentials_username ON credentials (username);
-CREATE INDEX IF NOT EXISTS idx_credentials_email ON credentials (email);
-CREATE INDEX IF NOT EXISTS idx_credentials_role ON credentials (role);
-
 COMMENT ON TABLE credentials IS 'Учётные данные для аутентификации';
 COMMENT ON COLUMN credentials.username IS 'Уникальное имя пользователя (бизнес-ключ)';
 COMMENT ON COLUMN credentials.email IS 'Email пользователя (бизнес-ключ)';
@@ -145,6 +141,11 @@ COMMENT ON COLUMN credentials.failed_login_attempts IS 'Количество н�
 COMMENT ON COLUMN credentials.last_login IS 'Последний вход пользователя';
 COMMENT ON COLUMN credentials.created_at IS 'Дата создания учетных данных';
 COMMENT ON COLUMN credentials.updated_at IS 'Дата изменения учетных данных';
+
+
+CREATE INDEX IF NOT EXISTS idx_credentials_username ON credentials (username);
+CREATE INDEX IF NOT EXISTS idx_credentials_email ON credentials (email);
+CREATE INDEX IF NOT EXISTS idx_credentials_role ON credentials (role);
 
 INSERT INTO credentials (username, email, password, role, is_active, failed_login_attempts, created_at)
 VALUES (
@@ -191,7 +192,7 @@ kubectl -n ebookstore get ingress
 minikube tunnel
 ```
 
-### 4. Посмотрить ip у ingress и проверить конфиг ingress:
+### 4. Посмотреть ip у ingress и проверить конфиг ingress:
 ```
 kubectl -n ebookstore get ingress ebookstore-ingress
 kubectl -n ebookstore describe ingress ebookstore-ingress
@@ -200,9 +201,17 @@ kubectl -n ebookstore describe ingress ebookstore-ingress
 ```
 kubectl -n ingress-nginx port-forward service/ingress-nginx-controller 8080:80
 ```
-### 4. В postman закинуть курл на добытый выше айпишник:
+### 4. В postman закинуть запрос на добытый выше айпишник:
 ```
-тут курлы
+POST http://localhost:8080/api/auth/register
+{
+    "username": "ingress_user",
+    "email": "ingress@test.com",
+    "password": "Password123!",
+    "confirmPassword": "Password123!",
+    "firstName": "Ingress",
+    "lastName": "Tester"
+  }
 ```
 
 # === УДАЛЕНИЕ ===
@@ -256,7 +265,7 @@ kubectl cordon minikube
 ```
 kubectl get nodes
 ```
-должно бытьбSchedulingDisabled
+должно быть бSchedulingDisabled
 
 ### 4. Принудительное пересоздание подов
 ```
