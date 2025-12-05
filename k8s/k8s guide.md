@@ -199,7 +199,6 @@ kubectl -n ebookstore describe ingress ebookstore-ingress
 ### 4.1 Если не сработает, то пробросить все же порт на ingress контроллер (может не работать из-за wsl2 + docker desktop):
 ```
 kubectl -n ingress-nginx port-forward service/ingress-nginx-controller 8080:80
-
 ```
 ### 4. В postman закинуть курл на добытый выше айпишник:
 ```
@@ -207,11 +206,88 @@ kubectl -n ingress-nginx port-forward service/ingress-nginx-controller 8080:80
 ```
 
 # === УДАЛЕНИЕ ===
+### Удаление пода и проверка происходящего:
+```
+kubectl -n ebookstore delete pod auth-service-123
+kubectl -n ebookstore get pods -w
+```
+
 ### Мгновенное удаление namespace (не рекомендуется, только в экстренных случаях или когда все подвисло):
 ```
 kubectl get namespace ebookstore -o json \
   | tr -d "\n" \
   | sed "s/\"kubernetes\"//g" \
   | kubectl replace --raw /api/v1/namespaces/ebookstore/finalize -f -
+```
 
+# === ПЕРЕЗАПУСК НОДЫ  ===
+### 1. Остановить minikube:
+```
+minikube stop
+```
+### 2. Поды должны исчезнуть, т.к. они живут только на ноде.
+```
+kubectl -n ebookstore get pods
+```
+### 3. Обратно запустить minikube:
+```
+minikube start --driver=docker
+```
+### 4. Через пару минут глянуть инфу о кластере:
+```
+kubectl cluster-info
+```
+### 5. Проверить запущенные поды:
+```
+kubectl -n ebookstore get pods
+```
+
+
+# === СИМУЛЯЦИЯ ОТКАЗА УЗЛА ===
+### 1. Посмотреть ноды:
+```
+kubectl get nodes
+```
+### 2. Перекрыть доступ к узлу (новые поды туда не пойдут)
+```
+kubectl cordon minikube
+```
+### 3. Еще раз проверить статус узла
+```
+kubectl get nodes
+```
+должно бытьбSchedulingDisabled
+
+### 4. Принудительное пересоздание подов
+```
+kubectl -n ebookstore rollout restart deployment auth-service
+```
+### 5. Поды попытаются запуститься, но не смогут (узел заблокирован)
+```
+kubectl -n ebookstore get pods
+```
+поды должны быть в статусе Pending
+
+### 6. Разблокировать узел (ноду)
+```
+kubectl uncordon minikube
+```
+### 7. Проверить:
+```
+kubectl -n ebookstore get pods -w
+```
+
+
+# === МАСШТАБИРОВАНИЕ ===
+### 1. Увеличить число реплик до 5:
+```
+kubectl -n ebookstore scale deployment auth-service --replicas=5
+```
+### 2. Проверить:
+```
+kubectl -n ebookstore get pods
+```
+### 3. Вернуть на место:
+```
+kubectl -n ebookstore scale deployment auth-service --replicas=3
 ```
