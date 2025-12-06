@@ -5,14 +5,14 @@ metadata:
   namespace: ebookstore
 spec:
   ingressClassName: nginx
-  rules:
+  rules: # правила маршрутизации
     - http:
         paths:
           - path: /api/auth
-            pathType: Prefix
-            backend:
+            pathType: Prefix # совпадение по префиксу выше
+            backend: # куда отправляется трафик
               service:
-                name: auth-service
+                name: auth-service # ingress отправит сюда трафик
                 port:
                   number: 8082
           - path: /api/users

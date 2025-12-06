@@ -5,7 +5,7 @@ metadata:
   name: auth-service-hpa
   namespace: ebookstore
 spec:
-  scaleTargetRef:
+  scaleTargetRef: # выбор deployment для масштабирования
     apiVersion: apps/v1
     kind: Deployment
     name: auth-service
