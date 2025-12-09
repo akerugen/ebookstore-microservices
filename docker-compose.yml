@@ -113,6 +113,52 @@ services:
       retries: 5
     restart: unless-stopped
 
+  catalog-service:
+    image: ebookstore-microservices/catalog-service:0.0.1-SNAPSHOT
+    container_name: catalog-service
+    build:
+      context: ./catalog-service
+      dockerfile: Dockerfile
+    environment:
+      - SERVER_PORT=8083
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://catalog-service-postgres:5432/catalog_service_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+      - SPRING_JPA_SHOW_SQL=false
+    depends_on:
+      catalog-service-postgres:
+        condition: service_healthy
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8083/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  catalog-service-postgres:
+    image: postgres:17
+    container_name: catalog-service-postgres
+    environment:
+      - POSTGRES_DB=catalog_service_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "9435:5432"
+    volumes:
+      - catalog_service_postgres_data:/var/lib/postgresql/data
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d catalog_service_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: ebookstore-redis
@@ -154,4 +200,5 @@ networks:
 volumes:
   user_service_postgres_data:
   auth_service_postgres_data:
+  catalog_service_postgres_data:
   redis_data:
