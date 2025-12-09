@@ -1,0 +1,35 @@
+INSERT INTO users (username, email, first_name, last_name, date_of_birth, created_at)
+VALUES
+    (
+        'superuser',
+        'superuser@ebookstore.system',
+        'Super',
+        'User',
+        '1990-01-01',
+        NOW()
+    ),
+    (
+        'admin',
+        'admin@ebookstore.system',
+        'Admin',
+        'One',
+        '1991-02-02',
+        NOW()
+    ),
+    (
+        'admin2',
+        'admin2@ebookstore.system',
+        'Admin',
+        'Two',
+        '1991-03-03',
+        NOW()
+    ),
+    (
+        'user',
+        'user@ebookstore.system',
+        'Regular',
+        'User',
+        '1995-04-04',
+        NOW()
+    )
+ON CONFLICT (username) DO NOTHING;
