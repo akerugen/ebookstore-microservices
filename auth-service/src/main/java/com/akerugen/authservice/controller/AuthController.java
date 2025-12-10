@@ -189,20 +189,31 @@ public class AuthController {
             // Извлекаем токен из Authorization header
             String authHeader = request.getHeader("Authorization");
 
+            logger.warn("Authorization header value: {}",
+                    authHeader != null ? (authHeader.length() > 20 ? authHeader.substring(0, 20) + "..." : authHeader) : "NULL");
+
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 logger.warn("No Authorization header or invalid format");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
             String token = authHeader.substring(7);
+            logger.debug("Token extracted, length: {}", token.length());
 
             // Валидируем токен
             ValidationResponse validation = authService.validateToken(token);
 
             if (Boolean.TRUE.equals(validation.getValid())) {
                 logger.debug("Token is valid for user: {}", validation.getUsername());
+
+                String role = jwtTokenProvider.getRoleFromToken(token);
+                logger.debug("User role: {}", role);
+                logger.info("Token valid, returning role: {}", role);
+
                 // возвращаем 200 OK - nginx пропустит запрос
-                return ResponseEntity.ok().build();
+                return ResponseEntity.ok()
+                        .header("X-User-Roles", role)
+                        .build();
             } else {
                 logger.warn("Token validation failed");
                 // возвращаем 401 Unauthorized - nginx отклонит запрос
@@ -211,6 +222,7 @@ public class AuthController {
 
         } catch (Exception ex) {
             logger.error("Token validation error: {}", ex.getMessage());
+            logger.error("Exception class: {}", ex.getClass().getName());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
     }

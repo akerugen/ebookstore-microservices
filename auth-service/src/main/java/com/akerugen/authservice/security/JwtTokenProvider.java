@@ -102,7 +102,7 @@ public class JwtTokenProvider {
     /**
      * Получить Claims из токена
      */
-    private Claims getClaimsFromToken(String token) {
+    public Claims getClaimsFromToken(String token) {
         try {
             return Jwts.parser()
                     .setSigningKey(getSigningKey())

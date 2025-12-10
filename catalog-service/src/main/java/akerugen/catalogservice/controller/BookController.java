@@ -3,10 +3,12 @@ package akerugen.catalogservice.controller;
 import akerugen.catalogservice.dto.request.BookRequestDto;
 import akerugen.catalogservice.dto.response.BookResponseDto;
 import akerugen.catalogservice.service.BookService;
+import akerugen.catalogservice.util.RoleAuthorizationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,10 +26,12 @@ public class BookController {
 
     private static final Logger logger = LogManager.getLogger(BookController.class);
     private final BookService bookService;
+    private final RoleAuthorizationUtil roleAuthorizationUtil;
 
     @Autowired
-    public BookController(BookService bookService) {
+    public BookController(BookService bookService, RoleAuthorizationUtil roleAuthorizationUtil) {
         this.bookService = bookService;
+        this.roleAuthorizationUtil = roleAuthorizationUtil;
     }
 
     @GetMapping
@@ -101,50 +105,91 @@ public class BookController {
     }
 
     @PostMapping
-    @Operation(summary = "Create a new book", description = "Creates a new book in the catalog")
+    @Operation(summary = "Create a new book", description = "Creates a new book in the catalog (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Book created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid input")
+            @ApiResponse(responseCode = "400", description = "Invalid input"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<BookResponseDto> createBook(@Valid @RequestBody BookRequestDto request) {
+    public ResponseEntity<BookResponseDto> createBook(
+            @Valid @RequestBody BookRequestDto request,
+            HttpServletRequest httpRequest) {
+
         logger.info("POST /api/catalog/books - creating book with title: {}", request.getTitle());
+
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to create book");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+
         BookResponseDto book = bookService.createBook(request);
         return new ResponseEntity<>(book, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update book", description = "Updates an existing book")
+    @Operation(summary = "Update book", description = "Updates an existing book (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Book updated successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "404", description = "Book not found")
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "404", description = "Book not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<BookResponseDto> updateBook(@PathVariable Long id,
-                                                      @Valid @RequestBody BookRequestDto request) {
+    public ResponseEntity<BookResponseDto> updateBook(
+            @PathVariable Long id,
+            @Valid @RequestBody BookRequestDto request,
+            HttpServletRequest httpRequest) {
+
         logger.info("PUT /api/catalog/books/{} - updating book", id);
+
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to update book");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+
         BookResponseDto book = bookService.updateBook(id, request);
         return new ResponseEntity<>(book, HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete book", description = "Deletes a book from the catalog")
+    @Operation(summary = "Delete book", description = "Deletes a book from the catalog (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Book deleted successfully"),
-            @ApiResponse(responseCode = "404", description = "Book not found")
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "404", description = "Book not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteBook(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+
         logger.info("DELETE /api/catalog/books/{} - deleting book", id);
+
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to delete book");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         bookService.deleteBook(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     @DeleteMapping
-    @Operation(summary = "Delete all books", description = "Deletes all books from the catalog")
+    @Operation(summary = "Delete all books", description = "Deletes all books from the catalog (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "All books deleted successfully")
+            @ApiResponse(responseCode = "204", description = "All books deleted successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<Void> deleteAllBooks() {
+    public ResponseEntity<Void> deleteAllBooks(HttpServletRequest httpRequest) {
         logger.info("DELETE /api/catalog/books - deleting all books");
+
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to delete all books");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         bookService.deleteAllBooks();
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }

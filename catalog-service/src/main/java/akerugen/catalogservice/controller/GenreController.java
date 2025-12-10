@@ -3,10 +3,12 @@ package akerugen.catalogservice.controller;
 import akerugen.catalogservice.dto.request.GenreRequestDto;
 import akerugen.catalogservice.dto.response.GenreResponseDto;
 import akerugen.catalogservice.service.GenreService;
+import akerugen.catalogservice.util.RoleAuthorizationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,10 +26,12 @@ public class GenreController {
 
     private static final Logger logger = LogManager.getLogger(GenreController.class);
     private final GenreService genreService;
+    private final RoleAuthorizationUtil roleAuthorizationUtil;
 
     @Autowired
-    public GenreController(GenreService genreService) {
+    public GenreController(GenreService genreService, RoleAuthorizationUtil roleAuthorizationUtil) {
         this.genreService = genreService;
+        this.roleAuthorizationUtil = roleAuthorizationUtil;
     }
 
     @GetMapping
@@ -66,50 +70,95 @@ public class GenreController {
     }
 
     @PostMapping
-    @Operation(summary = "Create a new genre", description = "Creates a new genre")
+    @Operation(summary = "Create a new genre", description = "Creates a new genre (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Genre created successfully"),
-            @ApiResponse(responseCode = "400", description = "Invalid input or genre already exists")
+            @ApiResponse(responseCode = "400", description = "Invalid input or genre already exists"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<GenreResponseDto> createGenre(@Valid @RequestBody GenreRequestDto request) {
+    public ResponseEntity<GenreResponseDto> createGenre(
+            @Valid @RequestBody GenreRequestDto request,
+            HttpServletRequest httpRequest) {
+
         logger.info("POST /api/catalog/genres - creating genre: {}", request.getName());
+
+        // Проверяем роль пользователя
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to create genre");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+
         GenreResponseDto genre = genreService.createGenre(request);
         return new ResponseEntity<>(genre, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update genre", description = "Updates an existing genre")
+    @Operation(summary = "Update genre", description = "Updates an existing genre (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Genre updated successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "404", description = "Genre not found")
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "404", description = "Genre not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<GenreResponseDto> updateGenre(@PathVariable Long id,
-                                                        @Valid @RequestBody GenreRequestDto request) {
+    public ResponseEntity<GenreResponseDto> updateGenre(
+            @PathVariable Long id,
+            @Valid @RequestBody GenreRequestDto request,
+            HttpServletRequest httpRequest) {
+
         logger.info("PUT /api/catalog/genres/{} - updating genre", id);
+
+        // Проверяем роль пользователя
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to update genre");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+
         GenreResponseDto genre = genreService.updateGenre(id, request);
         return new ResponseEntity<>(genre, HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete genre", description = "Deletes a genre")
+    @Operation(summary = "Delete genre", description = "Deletes a genre (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Genre deleted successfully"),
-            @ApiResponse(responseCode = "404", description = "Genre not found")
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "404", description = "Genre not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<Void> deleteGenre(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteGenre(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+
         logger.info("DELETE /api/catalog/genres/{} - deleting genre", id);
+
+        // Проверяем роль пользователя
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to delete genre");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         genreService.deleteGenre(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     @DeleteMapping
-    @Operation(summary = "Delete all genres", description = "Deletes all genres")
+    @Operation(summary = "Delete all genres", description = "Deletes all genres (requires ADMIN or SUPER_USER role)")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "All genres deleted successfully")
+            @ApiResponse(responseCode = "204", description = "All genres deleted successfully"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - insufficient permissions"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token")
     })
-    public ResponseEntity<Void> deleteAllGenres() {
+    public ResponseEntity<Void> deleteAllGenres(HttpServletRequest httpRequest) {
         logger.info("DELETE /api/catalog/genres - deleting all genres");
+
+        // Проверяем роль пользователя
+        if (!roleAuthorizationUtil.isAdminOrSuperUser(httpRequest)) {
+            logger.warn("User does not have ADMIN or SUPER_USER role to delete all genres");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         genreService.deleteAllGenres();
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
