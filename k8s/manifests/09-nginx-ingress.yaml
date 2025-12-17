@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ebookstore-ingress
+  namespace: ebookstore
+spec:
+  ingressClassName: nginx
+  rules: # правила маршрутизации
+    - http:
+        paths:
+          - path: /api/auth
+            pathType: Prefix # совпадение по префиксу выше
+            backend: # куда отправляется трафик
+              service:
+                name: auth-service # ingress отправит сюда трафик
+                port:
+                  number: 8082
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 8081
