@@ -185,6 +185,13 @@ public class AuthController {
     public ResponseEntity<Void> validateTokenFromHeader(HttpServletRequest request) {
         logger.debug("Received token validation request from Nginx");
 
+        // для preflight CORS-запросов (OPTIONS) токен не передаётся, но нам нужно
+        // просто подтвердить nginx, что маршрут доступен. поэтому сразу возвращаем 200.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            logger.debug("CORS preflight (OPTIONS) request - skipping token validation");
+            return ResponseEntity.ok().build();
+        }
+
         try {
             // Извлекаем токен из Authorization header
             String authHeader = request.getHeader("Authorization");

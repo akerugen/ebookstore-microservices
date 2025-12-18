@@ -15,7 +15,8 @@ services:
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - SPRING_FLYWAY_ENABLED=true
-      - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+      - SPRING_FLYWAY_LOCATIONS=classpath:db.migration
+      - SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_SHOW_SQL=false
     depends_on:
@@ -192,6 +193,19 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: unless-stopped
+
+  frontend:
+    image: ebookstore-microservices/frontend:0.0.1-SNAPSHOT
+    container_name: ebookstore-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - nginx
+    networks:
+      - ebookstore-microservices
 
 networks:
   ebookstore-microservices:

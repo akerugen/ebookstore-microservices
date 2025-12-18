@@ -32,7 +32,7 @@ import java.util.List;
  * - DELETE /api/users/{id} -> удалить пользователя
  */
 @RestController
-@RequestMapping("api/users")
+@RequestMapping("/api/users")
 @Tag(name = "User Management", description = "Operations related to user management")
 public class UserController {
 
