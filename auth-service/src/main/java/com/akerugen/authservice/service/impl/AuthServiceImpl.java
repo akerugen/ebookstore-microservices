@@ -335,4 +335,14 @@ public class AuthServiceImpl implements AuthService {
             throw new TokenException("Logout failed");
         }
     }
+
+    /**
+     * Изменить роль пользователя (только для SUPER_USER)
+     */
+    @Override
+    public void changeUserRole(String username, String newRole) {
+        logger.info("Changing role for user: {} to {}", username, newRole);
+        credentialsService.changeUserRole(username, newRole);
+        logger.info("Role changed successfully for user: {}", username);
+    }
 }

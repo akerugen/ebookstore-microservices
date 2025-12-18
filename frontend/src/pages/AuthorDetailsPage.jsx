@@ -54,9 +54,11 @@ export function AuthorDetailsPage() {
 
   return (
     <div className="page">
-      <button className="btn secondary" onClick={() => navigate(-1)}>
-        Назад
-      </button>
+      <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "1rem" }}>
+        <button className="btn secondary btn-back" onClick={() => navigate(-1)}>
+          ← Назад
+        </button>
+      </div>
       <div className="card author-details">
         <h1>
           {author.firstName} {author.lastName}

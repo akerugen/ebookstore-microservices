@@ -18,6 +18,15 @@ export const authApi = {
   async refreshToken(refreshToken) {
     const response = await api.post("/auth/refresh", { refreshToken });
     return response.data;
+  },
+
+  async changeUserRole(username, newRole) {
+    await api.patch("/auth/change-role", { username, newRole });
+  },
+
+  async getUserRole(username) {
+    const response = await api.get(`/auth/user-role/${username}`);
+    return response.data;
   }
 };
 

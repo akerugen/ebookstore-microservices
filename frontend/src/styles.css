@@ -186,6 +186,11 @@ select:focus {
   border: 1px solid rgba(148, 163, 184, 0.6);
 }
 
+.btn-back {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
 .btn.danger {
   background: rgba(248, 113, 113, 0.1);
   color: #fecaca;

@@ -46,9 +46,11 @@ export function BookDetailsPage() {
 
   return (
     <div className="page">
-      <button className="btn secondary" onClick={() => navigate(-1)}>
-        Назад
-      </button>
+      <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "1rem" }}>
+        <button className="btn secondary btn-back" onClick={() => navigate(-1)}>
+          ← Назад
+        </button>
+      </div>
       <div className="card book-details">
         <h1>{book.title}</h1>
         {book.description && <p>{book.description}</p>}

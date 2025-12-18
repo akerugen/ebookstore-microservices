@@ -25,27 +25,29 @@ export function Layout({ children }) {
   return (
     <div className="app-root">
       <header className="app-header">
-        <div className="logo" onClick={() => navigate("/catalog")}>
-          Ebookstore
-        </div>
-        <nav className="nav-links">
-          <Link
-            to="/catalog"
-            className={location.pathname.startsWith("/catalog") ? "active" : ""}
-          >
-            Каталог
-          </Link>
-          {isSuperUser && (
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
+          <div className="logo" onClick={() => navigate("/catalog")}>
+            Ebookstore
+          </div>
+          <nav className="nav-links">
             <Link
-              to="/admin/users"
-              className={
-                location.pathname.startsWith("/admin/users") ? "active" : ""
-              }
+              to="/catalog"
+              className={location.pathname.startsWith("/catalog") ? "active" : ""}
             >
-              Пользователи
+              Каталог
             </Link>
-          )}
-        </nav>
+            {isSuperUser && (
+              <Link
+                to="/admin/users"
+                className={
+                  location.pathname.startsWith("/admin/users") ? "active" : ""
+                }
+              >
+                Пользователи
+              </Link>
+            )}
+          </nav>
+        </div>
         <div className="auth-block">
           {isAuthenticated ? (
             <>
