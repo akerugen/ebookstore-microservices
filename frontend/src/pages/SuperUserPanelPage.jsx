@@ -19,9 +19,12 @@ export function SuperUserPanelPage() {
       }
       try {
         const data = await userApi.getAllUsers();
-        setUsers(data);
-      } catch {
+        // Проверяем, что данные являются массивом
+        setUsers(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error("Failed to load users:", e);
         setError("Не удалось загрузить пользователей");
+        setUsers([]);
       } finally {
         setLoading(false);
       }

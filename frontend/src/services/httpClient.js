@@ -2,13 +2,23 @@ import axios from "axios";
 import { decodeJwtPayload } from "../utils/jwt";
 import { authApi } from "./authApi";
 
-// важный момент:
-// - при запуске через docker фронтенд доступен на http://localhost:3000
-// - nginx-gateway (api) доступен на http://localhost (порт 80)
-// поэтому используем абсолютный адрес до nginx, а не относительный "/api",
-// иначе браузер будет ходить на порт 3000, где крутится только фронт.
+// Определяем baseURL в зависимости от окружения
+// В dev режиме (Vite) используем относительный путь для proxy
+// В production (Docker) используем абсолютный путь к nginx-gateway
+const getBaseURL = () => {
+  // Проверяем, запущено ли через Vite dev server
+  // import.meta.env.DEV = true только в dev режиме Vite
+  if (import.meta.env.DEV) {
+    return "/api";
+  }
+  // В production (Docker) фронтенд работает на порту 3000, nginx на порту 80
+  // Используем абсолютный путь к nginx-gateway
+  // В браузере localhost:3000 -> nginx на localhost:80
+  return "http://localhost/api";
+};
+
 const api = axios.create({
-  baseURL: "http://localhost/api"
+  baseURL: getBaseURL()
 });
 
 // простой хранилище токена для axios

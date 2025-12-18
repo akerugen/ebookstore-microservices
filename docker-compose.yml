@@ -19,6 +19,7 @@ services:
       - SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_SHOW_SQL=false
+      - JWT_SECRET=e7b1324642c76106e9e685101203d88c5694320b41ce3b270f989bc5069757ba
     depends_on:
       user-service-postgres:
         condition: service_healthy
@@ -185,13 +186,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"  # HTTP (ЕДИНСТВЕННЫЙ ВНЕШНИЙ ПОРТ!)
+    environment:
+      - CORS_ORIGIN=http://localhost:3000
     depends_on:
       - auth-service
       - user-service
     networks:
       - ebookstore-microservices
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: unless-stopped
 
   frontend:

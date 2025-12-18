@@ -4,14 +4,15 @@ import akerugen.userservice.dto.request.UserRequestDto;
 import akerugen.userservice.dto.response.CheckUserExistsResponse;
 import akerugen.userservice.dto.response.UserResponseDto;
 import akerugen.userservice.service.UserService;
+import akerugen.userservice.util.JwtTokenUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,10 +39,47 @@ public class UserController {
 
     private static final Logger logger = LogManager.getLogger(UserController.class);
     private final UserService userService;
+    private final JwtTokenUtil jwtTokenUtil;
 
-    @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtTokenUtil jwtTokenUtil) {
         this.userService = userService;
+        this.jwtTokenUtil = jwtTokenUtil;
+    }
+
+    /**
+     * Получить текущего пользователя из JWT токена
+     * Извлекает userId из токена и возвращает информацию о пользователе
+     */
+    @GetMapping("/me")
+    @Operation(summary = "Get current user", description = "Retrieves the current authenticated user from JWT token")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing token"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserResponseDto> getCurrentUser(HttpServletRequest request) {
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                logger.warn("No Authorization header or invalid format");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String token = authHeader.substring(7);
+            Long userId = jwtTokenUtil.getUserIdFromToken(token);
+
+            if (userId == null) {
+                logger.warn("Could not extract userId from token");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            logger.info("GET /api/users/me - retrieving current user with id: {}", userId);
+            UserResponseDto user = userService.getUserById(userId);
+            return new ResponseEntity<>(user, HttpStatus.OK);
+        } catch (Exception ex) {
+            logger.error("Error getting current user: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     /**
@@ -58,6 +96,50 @@ public class UserController {
     }
 
     /**
+     * Проверить существует ли пользователь
+     * Используется auth-service перед регистрацией
+     * ВАЖНО: Этот маппинг должен быть ПЕРЕД @GetMapping("/{id}"),
+     * иначе Spring может попытаться обработать "check" как ID
+     */
+    @GetMapping("/check")
+    @Operation(summary = "Check if user exists",
+            description = "Checks if a user exists by username and/or email")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Check result returned")
+    })
+    public ResponseEntity<CheckUserExistsResponse> checkUserExists(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String email) {
+        logger.debug("GET /api/users/check - checking user existence: username={}, email={}", username, email);
+
+        if (username == null && email == null) {
+            return ResponseEntity.ok(new CheckUserExistsResponse(false, "No parameters provided"));
+        }
+
+        boolean exists = userService.userExists(username, email);
+        String message = exists ? "User exists" : "User does not exist";
+
+        return ResponseEntity.ok(new CheckUserExistsResponse(exists, message));
+    }
+
+    /**
+     * Получить пользователя по username
+     * ВАЖНО: Этот маппинг должен быть ПЕРЕД @GetMapping("/{id}"),
+     * иначе Spring будет пытаться обработать "username" как ID
+     */
+    @GetMapping("/username/{username}")
+    @Operation(summary = "Get user by username", description = "Retrieves a user by their username")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User found"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserResponseDto> getUserByUsername(@PathVariable String username) {
+        logger.info("GET /api/users/username/{} - retrieving user", username);
+        UserResponseDto user = userService.getUserByUsername(username);
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+
+    /**
      * Получить пользователя по ID
      */
     @Operation(summary = "Get user by ID", description = "Retrieves a user by their ID")
@@ -70,21 +152,6 @@ public class UserController {
         logger.info("Received request to get user with id: {}", id);
         UserResponseDto response = userService.getUserById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
-    }
-
-    /**
-     * Получить пользователя по username
-     */
-    @GetMapping("/username/{username}")
-    @Operation(summary = "Get user by username", description = "Retrieves a user by their username")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "User found"),
-            @ApiResponse(responseCode = "404", description = "User not found")
-    })
-    public ResponseEntity<UserResponseDto> getUserByUsername(@PathVariable String username) {
-        logger.info("GET /api/users/username/{} - retrieving user", username);
-        UserResponseDto user = userService.getUserByUsername(username);
-        return new ResponseEntity<>(user, HttpStatus.OK);
     }
 
     /**
@@ -182,30 +249,5 @@ public class UserController {
         logger.info("Received request to delete all users");
         userService.deleteAllUsers();
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-    }
-
-    /**
-     * Проверить существует ли пользователь
-     * Используется auth-service перед регистрацией
-     */
-    @GetMapping("/check")
-    @Operation(summary = "Check if user exists",
-            description = "Checks if a user exists by username and/or email")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Check result returned")
-    })
-    public ResponseEntity<CheckUserExistsResponse> checkUserExists(
-            @RequestParam(required = false) String username,
-            @RequestParam(required = false) String email) {
-        logger.debug("GET /api/users/check - checking user existence: username={}, email={}", username, email);
-
-        if (username == null && email == null) {
-            return ResponseEntity.ok(new CheckUserExistsResponse(false, "No parameters provided"));
-        }
-
-        boolean exists = userService.userExists(username, email);
-        String message = exists ? "User exists" : "User does not exist";
-
-        return ResponseEntity.ok(new CheckUserExistsResponse(exists, message));
     }
 }

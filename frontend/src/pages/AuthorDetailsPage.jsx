@@ -19,9 +19,12 @@ export function AuthorDetailsPage() {
           catalogApi.getBooksByAuthor(id)
         ]);
         setAuthor(authorData);
-        setBooks(booksData);
-      } catch {
+        // Проверяем, что данные являются массивом
+        setBooks(Array.isArray(booksData) ? booksData : []);
+      } catch (e) {
+        console.error("Failed to load author:", e);
         setError("Не удалось загрузить автора");
+        setBooks([]);
       } finally {
         setLoading(false);
       }

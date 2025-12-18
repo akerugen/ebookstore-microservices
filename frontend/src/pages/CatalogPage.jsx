@@ -28,10 +28,14 @@ export function CatalogPage() {
           catalogApi.getBooks(),
           catalogApi.getAuthors()
         ]);
-        setBooks(booksData);
-        setAuthors(authorsData);
+        // Проверяем, что данные являются массивами
+        setBooks(Array.isArray(booksData) ? booksData : []);
+        setAuthors(Array.isArray(authorsData) ? authorsData : []);
       } catch (e) {
+        console.error("Failed to load catalog:", e);
         setError("Не удалось загрузить каталог");
+        setBooks([]);
+        setAuthors([]);
       } finally {
         setLoading(false);
       }
@@ -264,12 +268,16 @@ function BookModal({ book, onClose, onSaved }) {
           catalogApi.getGenres(),
           catalogApi.getBookStatuses()
         ]);
-        setAuthors(authorsData);
-        setGenres(genresData);
-        setStatuses(statusesData);
+        // Проверяем, что данные являются массивами
+        setAuthors(Array.isArray(authorsData) ? authorsData : []);
+        setGenres(Array.isArray(genresData) ? genresData : []);
+        setStatuses(Array.isArray(statusesData) ? statusesData : []);
       } catch (err) {
         console.error("Failed to load book form data:", err);
         setError("Не удалось загрузить данные для формы");
+        setAuthors([]);
+        setGenres([]);
+        setStatuses([]);
       } finally {
         setLoadingData(false);
       }

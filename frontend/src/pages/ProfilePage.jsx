@@ -9,14 +9,14 @@ export function ProfilePage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // получаем профиль по username из токена
+    // получаем профиль текущего пользователя из JWT токена
     const load = async () => {
-      if (!userInfo?.sub) {
+      if (!userInfo) {
         setLoading(false);
         return;
       }
       try {
-        const data = await userApi.getByUsername(userInfo.sub);
+        const data = await userApi.getCurrentUser();
         setProfile(data);
       } catch {
         setError("Не удалось загрузить профиль пользователя");

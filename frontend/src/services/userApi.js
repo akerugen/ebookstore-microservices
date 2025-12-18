@@ -1,6 +1,11 @@
 import { api } from "./httpClient";
 
 export const userApi = {
+  async getCurrentUser() {
+    const res = await api.get("/users/me");
+    return res.data;
+  },
+
   async getByUsername(username) {
     const res = await api.get(`/users/username/${username}`);
     return res.data;
