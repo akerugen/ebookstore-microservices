@@ -21,3 +21,4 @@ COMMENT ON COLUMN users.last_name IS 'Фамилия пользователя';
 COMMENT ON COLUMN users.date_of_birth IS 'Дата рождения пользователя';
 COMMENT ON COLUMN users.created_at IS 'Дата создания профиля';
 COMMENT ON COLUMN users.updated_at IS 'Дата изменения профиля';
+
