@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { userApi } from "../services/userApi";
+import { useSnowContext } from "../context/SnowContext";
 
 export function ProfilePage() {
   const { userInfo } = useAuth();
+  const { enabled: snowEnabled, toggle: toggleSnow } = useSnowContext();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -83,6 +85,19 @@ export function ProfilePage() {
             <strong>{profile.createdAt}</strong>
           </div>
         )}
+        <div className="profile-row" style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(148, 163, 184, 0.2)" }}>
+          <span>Снежная тема:</span>
+          <button
+            className={snowEnabled ? "btn primary" : "btn secondary"}
+            onClick={toggleSnow}
+            style={{
+              padding: "0.5rem 1rem",
+              fontSize: "0.875rem",
+            }}
+          >
+            {snowEnabled ? "Выключить" : "Включить"}
+          </button>
+        </div>
       </div>
     </div>
   );
