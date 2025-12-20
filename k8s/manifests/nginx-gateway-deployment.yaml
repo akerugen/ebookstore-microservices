@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-gateway
+  namespace: ebookstore
+  labels:
+    app: nginx-gateway
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: nginx-gateway
+  template:
+    metadata:
+      labels:
+        app: nginx-gateway
+    spec:
+      containers:
+        - name: nginx-gateway
+          image: nginx-gateway:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: CORS_ORIGIN
+              value: "*"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-gateway
+  namespace: ebookstore
+spec:
+  selector:
+    app: nginx-gateway
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  type: ClusterIP
+

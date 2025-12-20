@@ -22,6 +22,20 @@ data:
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
 
+  # catalog-service
+  CATALOG_DB_HOST: "catalog-db"
+  CATALOG_DB_PORT: "5432"
+  CATALOG_DB_NAME: "catalog_service_db"
+  CATALOG_DB_USER: "postgres"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8084"
+  USER_SERVICE_URL: "http://user-service:8081"
+
+  # notification-service
+  NOTIFICATION_DB_HOST: "notification-db"
+  NOTIFICATION_DB_PORT: "5432"
+  NOTIFICATION_DB_NAME: "notification_service_db"
+  NOTIFICATION_DB_USER: "postgres"
+
   # application
   APP_ENV: "kubernetes"
   SPRING_PROFILES_ACTIVE: "prod"

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ebookstore-ingress
+  namespace: ebookstore
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # все API запросы идут через nginx-gateway для авторизации и маршрутизации
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-gateway
+                port:
+                  number: 80
+          # фронтенд на корневом пути
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

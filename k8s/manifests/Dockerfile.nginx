@@ -1,0 +1,17 @@
+FROM nginx:alpine
+
+# устанавливаем envsubst для подстановки переменных окружения
+RUN apk add --no-cache gettext
+
+RUN rm /etc/nginx/nginx.conf
+
+# копируем nginx.conf для k8s (с именами k8s services)
+# этот файл должен быть в build context (в k8s/manifests при сборке)
+COPY nginx-k8s.conf /etc/nginx/nginx.conf.template
+
+EXPOSE 80
+
+# используем envsubst для подстановки переменных окружения в nginx.conf
+# если CORS_ORIGIN не установлен, используем значение по умолчанию
+CMD ["/bin/sh", "-c", "export CORS_ORIGIN=${CORS_ORIGIN:-*} && envsubst '$$CORS_ORIGIN' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
+

@@ -4,17 +4,17 @@ import { authApi } from "./authApi";
 
 // Определяем baseURL в зависимости от окружения
 // В dev режиме (Vite) используем относительный путь для proxy
-// В production (Docker) используем абсолютный путь к nginx-gateway
+// В production (Docker/K8s) используем либо переменную окружения, либо относительный путь
 const getBaseURL = () => {
   // Проверяем, запущено ли через Vite dev server
   // import.meta.env.DEV = true только в dev режиме Vite
   if (import.meta.env.DEV) {
     return "/api";
   }
-  // В production (Docker) фронтенд работает на порту 3000, nginx на порту 80
-  // Используем абсолютный путь к nginx-gateway
-  // В браузере localhost:3000 -> nginx на localhost:80
-  return "http://localhost/api";
+  // В production используем переменную окружения если она задана, иначе относительный путь
+  // Для docker-compose можно задать VITE_API_BASE_URL=http://localhost/api
+  // Для k8s используем относительный путь (через Ingress все идет на один домен)
+  return import.meta.env.VITE_API_BASE_URL || "/api";
 };
 
 const api = axios.create({
