@@ -3,6 +3,8 @@ import { useAuth } from "../auth/AuthContext";
 import { hasRole } from "../utils/jwt";
 import { userApi } from "../services/userApi";
 import { authApi } from "../services/authApi";
+import { ToastContainer } from "../components/Toast";
+import { useToast } from "../hooks/useToast";
 
 export function SuperUserPanelPage() {
   const { userInfo } = useAuth();
@@ -11,7 +13,7 @@ export function SuperUserPanelPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [changingRole, setChangingRole] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  const { toasts, showToast, removeToast } = useToast();
 
   const isSuperUser = hasRole(userInfo, ["ROLE_SUPER_USER"]);
 
@@ -24,9 +26,9 @@ export function SuperUserPanelPage() {
   const handleRoleChange = async (username, newRole) => {
     try {
       setChangingRole(username);
-      setSuccessMessage(null);
       await authApi.changeUserRole(username, newRole);
-      setSuccessMessage(`Роль пользователя ${username} успешно изменена на ${newRole}`);
+      const roleLabel = roles.find(r => r.value === newRole)?.label || newRole;
+      showToast(`Роль пользователя ${username} успешно изменена на ${roleLabel}`);
       // Обновляем роль в локальном состоянии сразу
       setUserRoles(prev => ({ ...prev, [username]: newRole }));
       // Перезагружаем список пользователей
@@ -37,7 +39,6 @@ export function SuperUserPanelPage() {
       setError(`Не удалось изменить роль: ${e.response?.data?.message || e.message}`);
     } finally {
       setChangingRole(null);
-      setTimeout(() => setSuccessMessage(null), 3000);
     }
   };
 
@@ -103,11 +104,6 @@ export function SuperUserPanelPage() {
   return (
     <div className="page">
       <h1>Управление пользователями</h1>
-      {successMessage && (
-        <div className="card" style={{ background: "rgba(34, 197, 94, 0.2)", borderColor: "rgba(34, 197, 94, 0.5)" }}>
-          <div style={{ color: "#86efac" }}>{successMessage}</div>
-        </div>
-      )}
       <div className="card">
         <table className="table">
           <thead>
@@ -185,6 +181,8 @@ export function SuperUserPanelPage() {
           </tbody>
         </table>
       </div>
+
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }

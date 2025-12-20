@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { catalogApi } from "../services/catalogApi";
 import { useAuth } from "../auth/AuthContext";
 import { hasRole } from "../utils/jwt";
+import { ToastContainer } from "../components/Toast";
+import { useToast } from "../hooks/useToast";
 
 export function CatalogPage() {
   const [books, setBooks] = useState([]);
@@ -16,6 +18,7 @@ export function CatalogPage() {
 
   const { userInfo } = useAuth();
   const navigate = useNavigate();
+  const { toasts, showToast, removeToast } = useToast();
 
   const isAdmin = hasRole(userInfo, ["ROLE_ADMIN", "ROLE_SUPER_USER"]);
 
@@ -68,6 +71,7 @@ export function CatalogPage() {
     try {
       await catalogApi.deleteBook(book.id);
       setBooks((prev) => prev.filter((b) => b.id !== book.id));
+      showToast(`Книга "${book.title}" успешно удалена`);
     } catch {
       alert("Не удалось удалить книгу");
     }
@@ -80,12 +84,13 @@ export function CatalogPage() {
     try {
       await catalogApi.deleteAuthor(author.id);
       setAuthors((prev) => prev.filter((a) => a.id !== author.id));
+      showToast(`Автор "${author.firstName} ${author.lastName}" успешно удален`);
     } catch {
       alert("Не удалось удалить автора");
     }
   };
 
-  const onBookSaved = (saved) => {
+  const onBookSaved = (saved, isEdit) => {
     setShowBookModal(false);
     setEditingBook(null);
     setBooks((prev) => {
@@ -95,9 +100,15 @@ export function CatalogPage() {
       }
       return [...prev, saved];
     });
+
+    if (isEdit) {
+      showToast(`Книга "${saved.title}" успешно обновлена`);
+    } else {
+      showToast(`Книга "${saved.title}" успешно создана`);
+    }
   };
 
-  const onAuthorSaved = (saved) => {
+  const onAuthorSaved = (saved, isEdit) => {
     setShowAuthorModal(false);
     setEditingAuthor(null);
     setAuthors((prev) => {
@@ -107,6 +118,13 @@ export function CatalogPage() {
       }
       return [...prev, saved];
     });
+
+    const authorName = `${saved.firstName} ${saved.lastName}`;
+    if (isEdit) {
+      showToast(`Автор "${authorName}" успешно обновлен`);
+    } else {
+      showToast(`Автор "${authorName}" успешно создан`);
+    }
   };
 
   if (loading) {
@@ -223,7 +241,7 @@ export function CatalogPage() {
             setShowBookModal(false);
             setEditingBook(null);
           }}
-          onSaved={onBookSaved}
+          onSaved={(saved) => onBookSaved(saved, Boolean(editingBook))}
         />
       )}
 
@@ -234,9 +252,11 @@ export function CatalogPage() {
             setShowAuthorModal(false);
             setEditingAuthor(null);
           }}
-          onSaved={onAuthorSaved}
+          onSaved={(saved) => onAuthorSaved(saved, Boolean(editingAuthor))}
         />
       )}
+
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 }
@@ -247,9 +267,9 @@ function BookModal({ book, onClose, onSaved }) {
     title: book?.title || "",
     description: book?.description || "",
     price: book?.price || "",
-    authorId: book?.authorId || "",
-    genreId: book?.genreId || "",
-    bookStatusId: book?.bookStatusId || book?.statusId || ""
+    authorId: book?.author?.id || "",
+    genreId: book?.genre?.id || "",
+    bookStatusId: book?.bookStatus?.id || ""
   });
   const [authors, setAuthors] = useState([]);
   const [genres, setGenres] = useState([]);
@@ -284,6 +304,20 @@ function BookModal({ book, onClose, onSaved }) {
     };
     load();
   }, []);
+
+  // обновляем форму при изменении book (когда данные загружены)
+  useEffect(() => {
+    if (book && !loadingData) {
+      setForm({
+        title: book.title || "",
+        description: book.description || "",
+        price: book.price || "",
+        authorId: book.author?.id || "",
+        genreId: book.genre?.id || "",
+        bookStatusId: book.bookStatus?.id || ""
+      });
+    }
+  }, [book, loadingData]);
 
   const onChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));

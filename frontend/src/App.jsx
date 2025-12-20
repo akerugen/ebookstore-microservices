@@ -8,6 +8,7 @@ import { BookDetailsPage } from "./pages/BookDetailsPage";
 import { AuthorDetailsPage } from "./pages/AuthorDetailsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SuperUserPanelPage } from "./pages/SuperUserPanelPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { Layout } from "./components/Layout";
 
 export function App() {
@@ -22,6 +23,7 @@ export function App() {
           <Route path="/authors/:id" element={<AuthorDetailsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin/users" element={<SuperUserPanelPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/" element={<Navigate to="/catalog" replace />} />
           <Route path="*" element={<Navigate to="/catalog" replace />} />
         </Routes>
