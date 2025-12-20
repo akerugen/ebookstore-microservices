@@ -4,12 +4,15 @@ import { useAuth } from "../auth/AuthContext";
 import { hasRole } from "../utils/jwt";
 import { setHttpAccessToken } from "../services/httpClient";
 import { notificationApi } from "../services/notificationApi";
+import { useSnowContext } from "../context/SnowContext";
+import { SnowAnimation } from "./SnowAnimation";
 
 export function Layout({ children }) {
   const { isAuthenticated, userInfo, logout, accessToken } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const { enabled: snowEnabled } = useSnowContext();
 
   useEffect(() => {
     setHttpAccessToken(accessToken || null);
@@ -55,6 +58,7 @@ export function Layout({ children }) {
 
   return (
     <div className="app-root">
+      <SnowAnimation enabled={snowEnabled} />
       <header className="app-header">
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
           <div className="logo" onClick={() => navigate("/catalog")}>
