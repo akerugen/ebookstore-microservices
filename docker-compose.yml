@@ -15,9 +15,11 @@ services:
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
       - SPRING_FLYWAY_ENABLED=true
-      - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+      - SPRING_FLYWAY_LOCATIONS=classpath:db.migration
+      - SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_SHOW_SQL=false
+      - JWT_SECRET=e7b1324642c76106e9e685101203d88c5694320b41ce3b270f989bc5069757ba
     depends_on:
       user-service-postgres:
         condition: service_healthy
@@ -128,8 +130,12 @@ services:
       - SPRING_FLYWAY_ENABLED=true
       - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
       - SPRING_JPA_SHOW_SQL=false
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+      - USER_SERVICE_URL=http://user-service:8081
     depends_on:
       catalog-service-postgres:
+        condition: service_healthy
+      notification-service:
         condition: service_healthy
     networks:
       - ebookstore-microservices
@@ -154,6 +160,54 @@ services:
       - ebookstore-microservices
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d catalog_service_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  notification-service:
+    image: ebookstore-microservices/notification-service:0.0.1-SNAPSHOT
+    container_name: notification-service
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    environment:
+      - SERVER_PORT=8084
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://notification-service-postgres:5432/notification_service_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_FLYWAY_LOCATIONS=classpath:db.migration
+      - SPRING_FLYWAY_BASELINE_ON_MIGRATE=true
+      - SPRING_JPA_SHOW_SQL=false
+      - JWT_SECRET=e7b1324642c76106e9e685101203d88c5694320b41ce3b270f989bc5069757ba
+    depends_on:
+      notification-service-postgres:
+        condition: service_healthy
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8084/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-service-postgres:
+    image: postgres:17
+    container_name: notification-service-postgres
+    environment:
+      - POSTGRES_DB=notification_service_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "9436:5432"
+    volumes:
+      - notification_service_postgres_data:/var/lib/postgresql
+    networks:
+      - ebookstore-microservices
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d notification_service_db" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -184,14 +238,28 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"  # HTTP (ЕДИНСТВЕННЫЙ ВНЕШНИЙ ПОРТ!)
+    environment:
+      - CORS_ORIGIN=http://localhost:3000
     depends_on:
       - auth-service
       - user-service
+      - notification-service
     networks:
       - ebookstore-microservices
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: unless-stopped
+
+  frontend:
+    image: ebookstore-microservices/frontend:0.0.1-SNAPSHOT
+    container_name: ebookstore-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - nginx
+    networks:
+      - ebookstore-microservices
 
 networks:
   ebookstore-microservices:
@@ -201,4 +269,5 @@ volumes:
   user_service_postgres_data:
   auth_service_postgres_data:
   catalog_service_postgres_data:
+  notification_service_postgres_data:
   redis_data:

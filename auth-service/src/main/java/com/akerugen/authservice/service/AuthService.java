@@ -17,4 +17,6 @@ public interface AuthService {
     ValidationResponse validateToken(String token);
 
     void logout(String refreshToken, String accessToken);
+
+    void changeUserRole(String username, String newRole);
 }

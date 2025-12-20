@@ -3,11 +3,14 @@ package com.akerugen.authservice.controller;
 import com.akerugen.authservice.dto.request.*;
 import com.akerugen.authservice.dto.response.AuthResponse;
 import com.akerugen.authservice.dto.response.LogoutResponse;
+import com.akerugen.authservice.dto.response.UserRoleResponse;
 import com.akerugen.authservice.dto.response.ValidationResponse;
 import com.akerugen.authservice.exception.ErrorResponse;
 import com.akerugen.authservice.security.JwtTokenProvider;
 import com.akerugen.authservice.service.AuthService;
+import com.akerugen.authservice.service.CredentialsService;
 import com.akerugen.authservice.util.AuthenticationUtil;
+import com.akerugen.authservice.util.RoleAuthorizationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -16,7 +19,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,11 +35,15 @@ public class AuthController {
     private final AuthService authService;
     private final AuthenticationUtil authenticationUtil;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RoleAuthorizationUtil roleAuthorizationUtil;
+    private final CredentialsService credentialsService;
 
-    public AuthController(AuthService authService, AuthenticationUtil authenticationUtil, JwtTokenProvider jwtTokenProvider) {
+    public AuthController(AuthService authService, AuthenticationUtil authenticationUtil, JwtTokenProvider jwtTokenProvider, RoleAuthorizationUtil roleAuthorizationUtil, CredentialsService credentialsService) {
         this.authService = authService;
         this.authenticationUtil = authenticationUtil;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.roleAuthorizationUtil = roleAuthorizationUtil;
+        this.credentialsService = credentialsService;
     }
 
     @PostMapping("/register")
@@ -185,6 +191,13 @@ public class AuthController {
     public ResponseEntity<Void> validateTokenFromHeader(HttpServletRequest request) {
         logger.debug("Received token validation request from Nginx");
 
+        // для preflight CORS-запросов (OPTIONS) токен не передаётся, но нам нужно
+        // просто подтвердить nginx, что маршрут доступен. поэтому сразу возвращаем 200.
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            logger.debug("CORS preflight (OPTIONS) request - skipping token validation");
+            return ResponseEntity.ok().build();
+        }
+
         try {
             // Извлекаем токен из Authorization header
             String authHeader = request.getHeader("Authorization");
@@ -224,6 +237,74 @@ public class AuthController {
             logger.error("Token validation error: {}", ex.getMessage());
             logger.error("Exception class: {}", ex.getClass().getName());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    /**
+     * Изменить роль пользователя (только для SUPER_USER)
+     */
+    @PatchMapping("/change-role")
+    @Operation(summary = "Change user role", description = "Changes user role. Only SUPER_USER can perform this action.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Role changed successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - only SUPER_USER can change roles"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<?> changeUserRole(
+            HttpServletRequest httpRequest,
+            @Valid @RequestBody ChangeRoleRequest request) {
+
+        logger.info("Change role endpoint called for user: {} to role: {}", request.getUsername(), request.getNewRole());
+
+        // Проверяем заголовок Authorization
+        String authHeader = httpRequest.getHeader("Authorization");
+        logger.warn("Authorization header in changeUserRole: {}", 
+                authHeader != null ? (authHeader.length() > 20 ? authHeader.substring(0, 20) + "..." : authHeader) : "NULL");
+
+        // Проверяем, что текущий пользователь - SUPER_USER
+        if (!roleAuthorizationUtil.isSuperUser(httpRequest)) {
+            logger.warn("User does not have SUPER_USER role to change user roles. Auth header present: {}", 
+                    authHeader != null);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ErrorResponse(403, "Forbidden: Only SUPER_USER can change user roles", 
+                            httpRequest.getRequestURI(), LocalDateTime.now()));
+        }
+
+        try {
+            authService.changeUserRole(request.getUsername(), request.getNewRole());
+            return ResponseEntity.ok().body(new ErrorResponse(200, "Role changed successfully", 
+                    httpRequest.getRequestURI(), LocalDateTime.now()));
+        } catch (Exception ex) {
+            logger.error("Failed to change user role: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(400, ex.getMessage(), 
+                            httpRequest.getRequestURI(), LocalDateTime.now()));
+        }
+    }
+
+    /**
+     * Получить роль пользователя по username
+     */
+    @GetMapping("/user-role/{username}")
+    @Operation(summary = "Get user role by username", description = "Retrieves user role by username")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Role retrieved successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - missing or invalid token")
+    })
+    public ResponseEntity<UserRoleResponse> getUserRole(@PathVariable String username) {
+        logger.info("GET /api/auth/user-role/{} - retrieving user role", username);
+        try {
+            var credentials = credentialsService.findByUsername(username);
+            String role = credentials.getRole().name(); // USER, ADMIN, SUPER_USER
+            UserRoleResponse response = new UserRoleResponse(username, role);
+            return ResponseEntity.ok(response);
+        } catch (Exception ex) {
+            logger.error("Failed to get user role: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
 }

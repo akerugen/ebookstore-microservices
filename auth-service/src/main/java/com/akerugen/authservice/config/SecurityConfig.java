@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/logout").permitAll()
                         .requestMatchers("/api/auth/validate").permitAll()
                         .requestMatchers("/api/auth/validate-header").permitAll()
+                        .requestMatchers("/api/auth/user-role/**").permitAll() // проверка роли внутри контроллера
+                        .requestMatchers("/api/auth/change-role").permitAll() // проверка роли внутри контроллера
                         .requestMatchers("/api/debug/**").permitAll()
                         .requestMatchers("/api/auth/refresh").authenticated()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
